@@ -1,58 +1,72 @@
 # Finances Hub
 
 A personal, **read-only** finance monitor for Android. It brings together my two banks — **Caja Rural de Navarra**
-and **Trade Republic** — so I can see in one place how much money I have, where it goes and how my investments are
-doing.
+and **Trade Republic** — so I can see in one place how much money I have and what moves in each account.
 
 Built as a portfolio project with **.NET 10, Aspire, Flutter, Azure SQL and Azure Container Apps**. It's for my own
 use: the app is installed as an APK on my phone and isn't published on any store.
 
-> **Status: planning.** This README describes what's being built. Each section will be updated as features land.
+> **Status: in development.** The solution is scaffolded; the features below are being built.
 
 ## What it does
 
-```mermaid
-flowchart LR
-    A[Caja Rural de Navarra] -->|PSD2 via<br/>Enable Banking| S[Sync job]
-    B[Trade Republic<br/>cash account] -->|PSD2 via<br/>Enable Banking| S
-    C[Trade Republic<br/>investments] -->|manual / CSV,<br/>pytr later| S
-    S --> D[(Accounts, transactions,<br/>holdings, daily snapshots)]
-    D --> E[API]
-    E --> F[Android app]
-```
-
-- **Total balance**: the money in both banks plus the value of the investments, in one figure.
-- **Transactions**: every movement from both banks in one list, with search and filters.
-- **Investments**: positions in Trade Republic, their current value, gains and asset allocation.
-- **Statistics**: net worth over time, income and expenses by month, spending by category and savings rate.
-- **Categories**: transactions are categorised with rules first and a language model only when no rule matches
-  (planned).
-- **Read-only**: the app never moves money or places orders. It only asks the banks for read access (PSD2 account
-  information).
-- **Demo mode**: a fake data provider, so the app can be run and shown without any real bank account.
+- **Total balance**: all my money across both banks, in one figure.
+- **Balance per bank**: what's in Caja Rural de Navarra and what's in Trade Republic.
+- **Transactions per account**: every movement of each account, newest first, with filters by date and by
+  income or expense.
+- **Read-only**: the app never moves money. It only asks the banks for read access to account information (PSD2
+  AIS); payments are never requested.
+- **Demo mode**: a fake bank provider, so the app can be run and shown without any real bank account.
 
 ## Where the data comes from
 
-| Source | How | Notes |
+Both banks are read through the **[Enable Banking](https://enablebanking.com) API**, an aggregator of the banks'
+PSD2 APIs. It runs in *restricted production mode*: only accounts I link myself can be read, for individual,
+non-commercial use.
+
+```mermaid
+flowchart LR
+    crn[Caja Rural de Navarra] -->|PSD2| eb[Enable Banking API]
+    tr[Trade Republic] -->|PSD2| eb
+    eb --> sync[Sync job]
+    sync --> db[(Accounts, balances,<br/>transactions)]
+    db --> api[API] --> app[Android app]
+```
+
+### Enable Banking calls
+
+| Call | What for |
+|---|---|
+| `GET /aspsps` | Find each bank and how long its consent can last |
+| `POST /auth` | Start linking a bank: returns the bank's login page |
+| `POST /sessions` | After the login, exchange the code for a session with the account IDs |
+| `GET /sessions/{id}` | Check the session is still authorised and when it expires |
+| `GET /accounts/{id}/details` | IBAN, account name, currency, product |
+| `GET /accounts/{id}/balances` | Current balances (booked, available) |
+| `GET /accounts/{id}/transactions` | Transactions by date range, paged with `continuation_key` |
+
+Calls are authenticated with a JWT (RS256) signed by the application's private key, which lives in Key Vault and
+never in the repo.
+
+### What each bank gives
+
+| | Caja Rural de Navarra | Trade Republic |
 |---|---|---|
-| Caja Rural de Navarra | [Enable Banking](https://enablebanking.com) API (PSD2 account information) | Restricted production mode: only my own linked accounts, for individual non-commercial use |
-| Trade Republic — cash account | Enable Banking API (listed under Germany) | The bank's PSD2 API only gives amount, currency and booking date, without a description |
-| Trade Republic — investments | Manual entry / CSV import first; [pytr](https://github.com/pytr-org/pytr) later, optional | Trade Republic has no public API. pytr is unofficial and can break at any time |
-| Market prices | A free market data API | To value the positions each day |
+| Balance | ✅ | ✅ (cash account) |
+| Amount, currency, booking date | ✅ | ✅ |
+| Description, counterparty, value date… | ✅ (as far as the bank sends them) | ❌ Its PSD2 API gives only amount, currency and booking date |
 
-Things the design has to live with:
+Trade Republic is listed under Germany in Enable Banking, the country of its banking licence. Investments aren't
+covered by PSD2 and are out of scope for now.
 
-- **Consents expire.** A bank's consent lasts at most what the bank allows (usually 180 days), so the app warns
-  before it expires and has a flow to reconnect.
-- **Few background requests.** Many banks allow only ~4 background requests per day, so the data is synced by a
-  scheduled job a few times a day, not in real time.
+### Constraints the design lives with
+
+- **Consents expire.** A consent lasts at most what the bank allows (usually 180 days), so the app warns before it
+  expires and has a flow to reconnect.
+- **Few background requests.** Many banks allow about 4 background requests a day, so the data is synced by a
+  scheduled job a few times a day, not on every app open.
 - **Short history.** Many banks give more than 90 days of history only right after the account is linked, so the
   full history is loaded at that moment.
-- **No net worth history from the banks.** The app stores a snapshot of the net worth every day; that is what the
-  charts are built on.
-
-Every source sits behind the same interface, so a source that breaks (or a CSV import that replaces it) doesn't
-affect the rest of the app.
 
 ## Architecture
 
@@ -73,23 +87,47 @@ flowchart LR
     aca -.->|OpenTelemetry| appi[Application Insights]
 ```
 
-Locally, **Aspire** starts everything with one command: SQL Server, the API and the sync job. The Flutter app runs
-on an emulator or the phone and points to the local API.
+The backend follows a light **Clean Architecture**, like [Plumy](https://github.com/chelomama-dev/plumy): `Domain`,
+`Application`, `Infrastructure` (EF Core, Enable Banking client) and two hosts, `Api` and `Sync`. Locally,
+**Aspire** starts SQL Server, the API and the sync with one command. The Flutter app runs on an emulator or the phone
+and points to the local API.
 
 ## Tech stack
 
 | Area | Choice |
 |---|---|
-| Mobile app | Flutter (Android), `fl_chart` |
+| Mobile app | Flutter (Android) |
 | Backend | .NET 10, ASP.NET Core minimal APIs, EF Core 10 |
 | Data | Azure SQL Database, free offer (SQL Server in a container locally) |
-| Bank data | Enable Banking API (PSD2) |
+| Bank data | Enable Banking API (PSD2 account information) |
 | Auth | Microsoft Entra ID (MSAL in the app, JWT bearer in the API) |
 | Hosting | Azure Container Apps (API) and Container Apps Jobs (sync), scale to zero |
 | Secrets | Azure Key Vault, managed identities |
 | IaC / CI/CD | Bicep, GitHub Actions, GHCR; the APK is built in CI and published as a release |
 | Observability | OpenTelemetry, Application Insights |
 | Local dev | Aspire 13, Docker |
+
+## Repository layout
+
+```
+src/
+  FinancesHub.Domain/          accounts, balances, transactions
+  FinancesHub.Application/     use cases
+  FinancesHub.Infrastructure/  EF Core, Enable Banking client
+  FinancesHub.Api/             HTTP API for the app
+  FinancesHub.Sync/            pulls balances and transactions from the banks, then exits
+  FinancesHub.AppHost/         Aspire orchestration for local dev
+  FinancesHub.ServiceDefaults/ OpenTelemetry, health checks, resilience
+mobile/                        Flutter app (coming)
+```
+
+## Run it locally
+
+Requires the .NET 10 SDK, Docker and the Aspire CLI. Then:
+
+```bash
+aspire run
+```
 
 ## Cost
 
@@ -99,11 +137,10 @@ cold start: the first request after a while takes a few seconds.
 
 ## Roadmap
 
-1. **Spike**: link my accounts in Enable Banking and make the first real calls.
-2. **MVP, local**: Aspire, API, SQL, sync from Enable Banking; total balance and transactions in the app.
+1. **Spike**: link both banks in Enable Banking and make the first real calls.
+2. **MVP, local**: sync from Enable Banking into SQL; total balance, balance per bank and transactions in the app.
 3. **Azure**: Bicep, GitHub Actions, Entra ID and the APK as a GitHub release.
-4. **Investments**: manual positions with automatic prices, then pytr.
-5. **Statistics and categories**: charts, and categorisation with rules plus a language model.
+4. **Later**: statistics (income and expenses by month, categories) and, maybe, Trade Republic investments.
 
 ## Disclaimer
 
