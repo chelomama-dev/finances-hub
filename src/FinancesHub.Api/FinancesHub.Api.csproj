@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <!-- Container image built by the SDK (dotnet publish /t:PublishContainer), no Dockerfile.
+       CI will pass ContainerRegistry=ghcr.io and the tags; locally the image stays in the Docker daemon. -->
+  <PropertyGroup>
+    <ContainerRepository>chelomama-dev/finances-hub-api</ContainerRepository>
+    <ContainerFamily>noble-chiseled</ContainerFamily>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Links the GHCR package to this repository -->
+    <ContainerLabel Include="org.opencontainers.image.source" Value="https://github.com/chelomama-dev/finances-hub" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FinancesHub.Application\FinancesHub.Application.csproj" />
+    <ProjectReference Include="..\FinancesHub.Infrastructure\FinancesHub.Infrastructure.csproj" />
+    <ProjectReference Include="..\FinancesHub.ServiceDefaults\FinancesHub.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

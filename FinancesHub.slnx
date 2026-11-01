@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FinancesHub.Api/FinancesHub.Api.csproj" />
+    <Project Path="src/FinancesHub.AppHost/FinancesHub.AppHost.csproj" />
+    <Project Path="src/FinancesHub.Application/FinancesHub.Application.csproj" />
+    <Project Path="src/FinancesHub.Domain/FinancesHub.Domain.csproj" />
+    <Project Path="src/FinancesHub.Infrastructure/FinancesHub.Infrastructure.csproj" />
+    <Project Path="src/FinancesHub.ServiceDefaults/FinancesHub.ServiceDefaults.csproj" />
+    <Project Path="src/FinancesHub.Sync/FinancesHub.Sync.csproj" />
+  </Folder>
+</Solution>

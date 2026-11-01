@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>5e079e3d-f50f-4775-8428-7fdceb868137</UserSecretsId>
+  </PropertyGroup>
+
+  <!-- Container image built by the SDK, like the API's (see FinancesHub.Api.csproj) -->
+  <PropertyGroup>
+    <ContainerRepository>chelomama-dev/finances-hub-sync</ContainerRepository>
+    <ContainerFamily>noble-chiseled</ContainerFamily>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ContainerLabel Include="org.opencontainers.image.source" Value="https://github.com/chelomama-dev/finances-hub" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FinancesHub.Application\FinancesHub.Application.csproj" />
+    <ProjectReference Include="..\FinancesHub.Infrastructure\FinancesHub.Infrastructure.csproj" />
+    <ProjectReference Include="..\FinancesHub.ServiceDefaults\FinancesHub.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>
