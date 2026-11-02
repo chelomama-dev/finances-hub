@@ -1,4 +1,5 @@
 using FinancesHub.Application.Connections;
+using FinancesHub.Application.Queries;
 using FinancesHub.Application.Sync;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +15,7 @@ public static class DependencyInjection
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<SyncBanks>();
         services.AddScoped<LinkBank>();
+        services.AddScoped<GetSummary>();
         return services;
     }
 }

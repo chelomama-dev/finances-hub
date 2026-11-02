@@ -9,9 +9,9 @@ The HTTP contract between the backend (`src/FinancesHub.Api`) and the Flutter ap
 
 | Endpoint | Purpose | Implemented |
 |---|---|---|
-| `GET /api/summary` | Total balance and balance per bank | No |
-| `GET /api/banks/{bankId}/accounts` | A bank's accounts and their balances | No |
-| `GET /api/accounts/{accountId}/transactions` | An account's transactions, filtered and paged | No |
+| `GET /api/summary` | Total balance and balance per bank | Yes |
+| `GET /api/banks/{bankId}/accounts` | A bank's accounts and their balances | Yes |
+| `GET /api/accounts/{accountId}/transactions` | An account's transactions, filtered and paged | Yes |
 | `GET /api/connections` | Linked banks and consent status | Yes |
 | `POST /api/connections` | Start linking a bank | Yes |
 | `POST /api/connections/{connectionId}/renew` | Start reconnecting an expired or expiring bank | Yes |
@@ -78,6 +78,8 @@ banks.
 
 - `lastSyncedAt` *nullable*: `null` if no sync has run yet.
 - `banks` is empty if no bank is linked yet; then `totalBalance.amount` is `"0.00"`.
+- `lastSyncedAt` is the most recent sync of any account. A bank's `balance` is the sum of its accounts; it is
+  `"0.00"` until its first sync.
 - `connectionStatus`: see [connection status](#connection-status).
 - All accounts are in EUR for now; the total only adds EUR balances.
 
@@ -105,13 +107,14 @@ banks.
 - `name` *nullable*: the bank may not send one; show the masked IBAN instead. Banks send the holder's name or
   their own product name here (`MI CUENTA`), as is.
 - `maskedIban` *nullable*: some accounts have no IBAN.
-- `404` if the bank doesn't exist.
+- `404` if the bank doesn't exist. A known bank that isn't linked returns an empty `accounts` list.
 
 ### List an account's transactions
 
 `GET /api/accounts/{accountId}/transactions?from=2026-10-01&to=2026-11-02&direction=expense&limit=50&cursor=…`
 
-Newest first (by `bookingDate`, then by arrival order).
+Newest first by `bookingDate`; transactions of the same day come in a stable order, so paging never repeats or
+skips one.
 
 | Query | Required | Default | Notes |
 |---|---|---|---|
@@ -226,3 +229,5 @@ accounts in the backend's allowed list are saved, whatever the owner shares in t
   (`ES12 **** 4567`); transaction IDs are not stable; consent length per bank; which fields each bank sends.
 - 2026-11-02: connections implemented. The callback path is `/api/connections/callback`, the result deep link
   carries `synced`, and the login URL is valid for 30 minutes.
+- 2026-11-02: summary, accounts and transactions implemented. Same-day transactions come in a stable order rather
+  than arrival order.

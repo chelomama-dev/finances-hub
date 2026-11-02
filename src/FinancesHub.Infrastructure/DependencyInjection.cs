@@ -1,4 +1,5 @@
 using FinancesHub.Application.Abstractions;
+using FinancesHub.Application.Queries;
 using FinancesHub.Infrastructure.EnableBanking;
 using FinancesHub.Infrastructure.Persistence;
 using FinancesHub.Infrastructure.Persistence.Repositories;
@@ -22,6 +23,7 @@ public static class DependencyInjection
         builder.Services.AddScoped<ILinkRequestRepository, LinkRequestRepository>();
         builder.Services.AddScoped<IAccountRepository, AccountRepository>();
         builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
+        builder.Services.AddScoped<IFinanceQueries, FinanceQueries>();
 
         builder.Services.AddEnableBanking(builder.Configuration);
 
