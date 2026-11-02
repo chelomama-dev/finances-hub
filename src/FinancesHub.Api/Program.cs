@@ -1,10 +1,14 @@
+using FinancesHub.Application;
 using FinancesHub.Infrastructure;
+using FinancesHub.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 builder.AddInfrastructure();
+builder.Services.AddApplication();
 
 builder.Services.AddProblemDetails();
 // .NET 10: validates DataAnnotations on endpoint parameters and returns a 400 ValidationProblem
@@ -32,6 +36,12 @@ app.MapDefaultEndpoints();
 
 if (app.Environment.IsDevelopment())
 {
+    // Locally the database is brought up to date on startup. In Azure, the pipeline applies the migrations
+    await using (var scope = app.Services.CreateAsyncScope())
+    {
+        await scope.ServiceProvider.GetRequiredService<FinancesDbContext>().Database.MigrateAsync();
+    }
+
     app.MapOpenApi();
 
     // In Azure the ingress already redirects HTTP to HTTPS, and the container has no HTTPS port to redirect to
