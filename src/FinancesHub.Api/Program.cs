@@ -1,4 +1,5 @@
 using FinancesHub.Api.Connections;
+using FinancesHub.Api.Finances;
 using FinancesHub.Application;
 using FinancesHub.Infrastructure;
 using FinancesHub.Infrastructure.Persistence;
@@ -37,6 +38,7 @@ app.UseExceptionHandler();
 
 app.MapDefaultEndpoints();
 app.MapConnections();
+app.MapFinances();
 
 if (app.Environment.IsDevelopment())
 {
