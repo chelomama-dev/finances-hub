@@ -1,7 +1,7 @@
 # API contract
 
-The HTTP contract between the backend (`src/FinancesHub.Api`) and the Flutter app (`mobile/`). The backend agent
-owns this file and changes it **before** changing the API; the app follows it exactly. See [AGENTS.md](../AGENTS.md).
+The HTTP contract between the backend (`src/FinancesHub.Api`) and the Flutter app (`mobile/`). It changes
+**before** the API does, and the app uses only what it describes.
 
 > **Status: confirmed by the Enable Banking spike, not implemented yet.** Every change is recorded in the
 > [changelog](#changelog). Until an endpoint is implemented, the app uses its demo
