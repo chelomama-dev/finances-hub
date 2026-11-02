@@ -132,7 +132,9 @@ as a `.pem` file outside the repo). Give them to the AppHost once, as user secre
 ```bash
 dotnet user-secrets --project src/FinancesHub.AppHost set "Parameters:enablebanking-application-id" "<application id>"
 dotnet user-secrets --project src/FinancesHub.AppHost set "Parameters:enablebanking-private-key-path" "$HOME/.secrets/enablebanking/<application id>.pem"
-dotnet user-secrets --project src/FinancesHub.AppHost set "Parameters:enablebanking-redirect-url" "https://localhost:7017/callback"
+dotnet user-secrets --project src/FinancesHub.AppHost set "Parameters:enablebanking-redirect-url" "https://localhost:7017/api/connections/callback"
+# Comma-separated IBANs that may be stored; empty to store every account you share
+dotnet user-secrets --project src/FinancesHub.AppHost set "Parameters:bank-linking-allowed-ibans" "<IBAN>,<IBAN>"
 ```
 
 Then:
@@ -142,7 +144,8 @@ aspire run
 ```
 
 The API brings the database up to date on startup, and the sync runs once and exits; restart it from the dashboard
-to sync again. Tests need Docker too: the persistence tests run against SQL Server in a container.
+to sync again. To link a bank, `POST https://localhost:7017/api/connections` with `{ "bank": "caja-rural-navarra" }`
+(or `trade-republic`), open the `authorizationUrl` and log in to the bank. Tests need Docker too: the persistence tests run against SQL Server in a container.
 
 ## Cost
 
@@ -152,7 +155,8 @@ cold start: the first request after a while takes a few seconds.
 
 ## Roadmap
 
-1. **Spike**: link both banks in Enable Banking and make the first real calls.
+1. ~~**Spike**: link both banks in Enable Banking and make the first real calls.~~ Done: see
+   [ADR 0001](docs/adr/0001-sync-replaces-a-recent-window-of-transactions.md).
 2. **MVP, local**: sync from Enable Banking into SQL; total balance, balance per bank and transactions in the app.
 3. **Azure**: Bicep, GitHub Actions, Entra ID and the APK as a GitHub release.
 4. **Later**: statistics (income and expenses by month, categories) and, maybe, Trade Republic investments.

@@ -113,6 +113,30 @@ namespace FinancesHub.Infrastructure.Persistence.Migrations
                     b.ToTable("Connections", (string)null);
                 });
 
+            modelBuilder.Entity("FinancesHub.Domain.Connections.LinkRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BankCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<Guid?>("ConnectionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConnectionId");
+
+                    b.ToTable("LinkRequests", (string)null);
+                });
+
             modelBuilder.Entity("FinancesHub.Domain.Transactions.Transaction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -173,6 +197,14 @@ namespace FinancesHub.Infrastructure.Persistence.Migrations
                         .HasForeignKey("ConnectionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("FinancesHub.Domain.Connections.LinkRequest", b =>
+                {
+                    b.HasOne("FinancesHub.Domain.Connections.Connection", null)
+                        .WithMany()
+                        .HasForeignKey("ConnectionId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("FinancesHub.Domain.Transactions.Transaction", b =>

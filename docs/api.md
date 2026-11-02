@@ -12,9 +12,9 @@ The HTTP contract between the backend (`src/FinancesHub.Api`) and the Flutter ap
 | `GET /api/summary` | Total balance and balance per bank | No |
 | `GET /api/banks/{bankId}/accounts` | A bank's accounts and their balances | No |
 | `GET /api/accounts/{accountId}/transactions` | An account's transactions, filtered and paged | No |
-| `GET /api/connections` | Linked banks and consent status | No |
-| `POST /api/connections` | Start linking a bank | No |
-| `POST /api/connections/{connectionId}/renew` | Start reconnecting an expired or expiring bank | No |
+| `GET /api/connections` | Linked banks and consent status | Yes |
+| `POST /api/connections` | Start linking a bank | Yes |
+| `POST /api/connections/{connectionId}/renew` | Start reconnecting an expired or expiring bank | Yes |
 
 ## Conventions
 
@@ -189,33 +189,40 @@ Consents last what each bank allows: 180 days for Caja Rural de Navarra, **90 da
 { "bank": "caja-rural-navarra" }
 ```
 
-`bank` is a bank code: `caja-rural-navarra` or `trade-republic`. Response `200`:
+`bank` is a bank code: `caja-rural-navarra` or `trade-republic`; anything else is a `400` with
+`errors.bank`. Response `200`:
 
 ```json
 { "authorizationUrl": "https://tilisy.enablebanking.com/welcome?sessionid=…" }
 ```
 
 `POST /api/connections/{connectionId}/renew` has no body and returns the same response, to reconnect an existing
-connection.
+connection (`404` if it doesn't exist). Its accounts and their history stay.
+
+The login URL must be opened within **30 minutes**; after that the callback fails with `reason=failed`.
 
 The flow:
 
 1. The app calls the endpoint and opens `authorizationUrl` in the **external browser** (`url_launcher`,
    `LaunchMode.externalApplication`), not in a WebView, because some banks block logins inside a WebView.
 2. The user logs in to the bank and accepts the consent.
-3. The bank sends the browser back to the API, which completes the session. This part is backend only.
+3. The bank sends the browser back to the API (`GET /api/connections/callback`), which completes the session, saves
+   the accounts and loads their history. This part is backend only.
 4. The API redirects the browser to the app's deep link:
-   - `financeshub://connections/result?status=success`
+   - `financeshub://connections/result?status=success&synced=true`. `synced=false` means the bank is linked but the
+     first load of data failed; the scheduled sync will retry, so show it as linked with a note.
    - `financeshub://connections/result?status=error&reason=<code>`, where `reason` is `cancelled`, `denied` or
      `failed`.
 5. The app handles the deep link (an Android intent filter for the `financeshub` scheme and a go_router route),
    shows the result and refreshes the connections and the summary.
 
-After a new link, the backend loads the full history in the background, so the first data can take a few minutes to
-appear.
+The first load happens before the redirect, so when the app gets `synced=true` the data is already there. Only the
+accounts in the backend's allowed list are saved, whatever the owner shares in the bank's consent screen.
 
 ## Changelog
 
 - 2026-11-02: first draft.
 - 2026-11-02: confirmed by the spike. Bank IDs are their codes instead of UUIDs; masked IBANs are shorter
   (`ES12 **** 4567`); transaction IDs are not stable; consent length per bank; which fields each bank sends.
+- 2026-11-02: connections implemented. The callback path is `/api/connections/callback`, the result deep link
+  carries `synced`, and the login URL is valid for 30 minutes.

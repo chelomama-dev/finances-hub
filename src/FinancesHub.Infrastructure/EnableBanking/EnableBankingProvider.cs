@@ -4,12 +4,13 @@ using FinancesHub.Application.Banking;
 using FinancesHub.Domain.Banks;
 using FinancesHub.Domain.Common;
 using FinancesHub.Infrastructure.EnableBanking.Api;
+using Microsoft.Extensions.Options;
 
 namespace FinancesHub.Infrastructure.EnableBanking;
 
 // IBankingProvider over the Enable Banking API. The HttpClient comes from AddEnableBankingHttpClient, which signs
 // every request
-internal sealed class EnableBankingProvider(HttpClient http, TimeProvider timeProvider) : IBankingProvider
+internal sealed class EnableBankingProvider(HttpClient http, IOptions<EnableBankingOptions> options, TimeProvider timeProvider) : IBankingProvider
 {
     // Far more than a personal account needs (the spike's 13 months were 2 pages). Hitting it means the bank keeps
     // returning continuation keys, and a partial list must never reach the sync
@@ -23,8 +24,12 @@ internal sealed class EnableBankingProvider(HttpClient http, TimeProvider timePr
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
     };
 
-    public async Task<BankAuthorization> StartAuthorizationAsync(Bank bank, Uri redirectUrl, string state, CancellationToken cancellationToken)
+    public async Task<BankAuthorization> StartAuthorizationAsync(Bank bank, string state, CancellationToken cancellationToken)
     {
+        // Only the API links banks, so only the API needs it; the sync runs without
+        var redirectUrl = options.Value.RedirectUrl
+            ?? throw new InvalidOperationException($"{EnableBankingOptions.SectionName}:RedirectUrl is required to link a bank.");
+
         var aspsps = await GetAsync<AspspsResponse>($"/aspsps?country={bank.Country}&service=AIS", cancellationToken);
         var aspsp = aspsps.Aspsps?.FirstOrDefault(a => a.Name == bank.Name)
             ?? throw new BankingProviderException($"Enable Banking doesn't list {bank.Name} in {bank.Country}.");

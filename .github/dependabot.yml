@@ -7,7 +7,6 @@ updates:
     directories:
       - /src/*
       - /tests/*
-      - /tools/*
     schedule:
       interval: weekly
       day: monday

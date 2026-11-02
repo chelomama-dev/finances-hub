@@ -8,6 +8,7 @@ namespace FinancesHub.Infrastructure.Persistence;
 public sealed class FinancesDbContext(DbContextOptions<FinancesDbContext> options) : DbContext(options)
 {
     public DbSet<Connection> Connections => Set<Connection>();
+    public DbSet<LinkRequest> LinkRequests => Set<LinkRequest>();
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
 

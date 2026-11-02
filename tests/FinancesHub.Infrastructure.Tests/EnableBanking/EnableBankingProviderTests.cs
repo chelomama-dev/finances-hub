@@ -5,6 +5,7 @@ using FinancesHub.Domain.Banks;
 using FinancesHub.Domain.Common;
 using FinancesHub.Domain.Transactions;
 using FinancesHub.Infrastructure.EnableBanking;
+using Microsoft.Extensions.Options;
 
 namespace FinancesHub.Infrastructure.Tests.EnableBanking;
 
@@ -166,8 +167,7 @@ public sealed class EnableBankingProviderTests
             .Respond("""{ "aspsps": [ { "name": "Trade Republic", "country": "DE", "maximum_consent_validity": 7776000 } ] }""")
             .Respond("""{ "url": "https://tilisy.enablebanking.com/ais/start?sessionid=abc" }""");
 
-        var authorization = await CreateProvider().StartAuthorizationAsync(
-            Bank.TradeRepublic, new Uri("https://localhost:7017/callback"), "state-1", CancellationToken.None);
+        var authorization = await CreateProvider().StartAuthorizationAsync(Bank.TradeRepublic, "state-1", CancellationToken.None);
 
         Assert.Equal(new Uri("https://tilisy.enablebanking.com/ais/start?sessionid=abc"), authorization.Url);
         Assert.Equal(Now.AddDays(90).AddMinutes(-10), authorization.ConsentValidUntil);
@@ -179,7 +179,7 @@ public sealed class EnableBankingProviderTests
         Assert.Equal("Trade Republic", json.GetProperty("aspsp").GetProperty("name").GetString());
         Assert.Equal("DE", json.GetProperty("aspsp").GetProperty("country").GetString());
         Assert.Equal("state-1", json.GetProperty("state").GetString());
-        Assert.Equal("https://localhost:7017/callback", json.GetProperty("redirect_url").GetString());
+        Assert.Equal("https://localhost:7017/api/connections/callback", json.GetProperty("redirect_url").GetString());
         Assert.Equal("personal", json.GetProperty("psu_type").GetString());
         Assert.Equal(Now.AddDays(90).AddMinutes(-10), json.GetProperty("access").GetProperty("valid_until").GetDateTimeOffset());
     }
@@ -231,7 +231,9 @@ public sealed class EnableBankingProviderTests
     }
 
     private EnableBankingProvider CreateProvider() =>
-        new(new HttpClient(_handler) { BaseAddress = new Uri("https://api.enablebanking.com") }, new FixedTimeProvider(Now));
+        new(new HttpClient(_handler) { BaseAddress = new Uri("https://api.enablebanking.com") },
+            Options.Create(new EnableBankingOptions { RedirectUrl = new Uri("https://localhost:7017/api/connections/callback") }),
+            new FixedTimeProvider(Now));
 
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
     {

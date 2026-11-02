@@ -19,6 +19,7 @@ public static class DependencyInjection
 
         builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
         builder.Services.AddScoped<IConnectionRepository, ConnectionRepository>();
+        builder.Services.AddScoped<ILinkRequestRepository, LinkRequestRepository>();
         builder.Services.AddScoped<IAccountRepository, AccountRepository>();
         builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 

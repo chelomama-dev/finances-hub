@@ -8,7 +8,21 @@ public interface IConnectionRepository
 {
     Task<IReadOnlyList<Connection>> ListAsync(CancellationToken cancellationToken);
 
+    Task<Connection?> GetAsync(Guid id, CancellationToken cancellationToken);
+
     void Add(Connection connection);
+}
+
+public interface ILinkRequestRepository
+{
+    Task<LinkRequest?> GetAsync(Guid id, CancellationToken cancellationToken);
+
+    void Add(LinkRequest request);
+
+    void Remove(LinkRequest request);
+
+    /// <summary>Deletes, right away, requests created before <paramref name="createdBefore"/> that never came back.</summary>
+    Task RemoveCreatedBeforeAsync(DateTimeOffset createdBefore, CancellationToken cancellationToken);
 }
 
 public interface IAccountRepository

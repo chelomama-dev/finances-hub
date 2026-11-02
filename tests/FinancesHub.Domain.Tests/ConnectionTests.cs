@@ -56,3 +56,34 @@ public sealed class ConnectionTests
         Assert.Throws<DomainException>(() => Connection.Create(Bank.TradeRepublic, "session", Now, Now));
     }
 }
+
+public sealed class LinkRequestTests
+{
+    private static readonly DateTimeOffset Now = new(2026, 11, 2, 12, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public void Is_valid_for_30_minutes()
+    {
+        var request = LinkRequest.ToLink(Bank.TradeRepublic, Now);
+
+        Assert.False(request.IsExpiredAt(Now.AddMinutes(30)));
+        Assert.True(request.IsExpiredAt(Now.AddMinutes(30).AddSeconds(1)));
+    }
+
+    [Fact]
+    public void Its_state_is_random_not_time_based()
+    {
+        Assert.Equal(4, LinkRequest.ToLink(Bank.TradeRepublic, Now).Id.Version);
+    }
+
+    [Fact]
+    public void A_renewal_points_to_its_connection()
+    {
+        var connection = Connection.Create(Bank.CajaRuralDeNavarra, "session", Now.AddDays(180), Now);
+
+        var request = LinkRequest.ToRenew(connection, Now);
+
+        Assert.Equal(connection.Id, request.ConnectionId);
+        Assert.Equal(Bank.CajaRuralDeNavarra.Code, request.BankCode);
+    }
+}
