@@ -3,8 +3,8 @@
 The HTTP contract between the backend (`src/FinancesHub.Api`) and the Flutter app (`mobile/`). The backend agent
 owns this file and changes it **before** changing the API; the app follows it exactly. See [AGENTS.md](../AGENTS.md).
 
-> **Status: draft.** No endpoint is implemented yet. Shapes may still change after the Enable Banking spike; every
-> change is recorded in the [changelog](#changelog). Until an endpoint is implemented, the app uses its demo
+> **Status: confirmed by the Enable Banking spike, not implemented yet.** Every change is recorded in the
+> [changelog](#changelog). Until an endpoint is implemented, the app uses its demo
 > repositories (`--dart-define=DEMO=true`) with the examples below.
 
 | Endpoint | Purpose | Implemented |
@@ -21,7 +21,11 @@ owns this file and changes it **before** changing the API; the app follows it ex
 - **Base URL**: local `http://localhost:5080` (`http://10.0.2.2:5080` from the Android emulator). All paths start
   with `/api`.
 - **JSON** in camelCase. Fields marked *nullable* can be `null`; all other fields are always present.
-- **IDs** are opaque strings (UUIDs). Don't parse them.
+- **IDs** are opaque strings. Banks use their code (`caja-rural-navarra`, `trade-republic`); everything else uses
+  UUIDs. Don't parse them.
+- **Transaction IDs are not stable**: the transactions of the last days are replaced on every sync
+  ([ADR 0001](adr/0001-sync-replaces-a-recent-window-of-transactions.md)). Use them as list keys within one
+  response, but never store them or link to them.
 - **Money** is always an object with the amount as a **decimal string** with a dot, never a JSON number:
   `{ "amount": "-23.40", "currency": "EUR" }`. Negative amounts are expenses, positive ones are income.
 - **Dates**: `bookingDate` is a date with no time (`"2026-11-01"`). Timestamps are UTC ISO 8601
@@ -57,13 +61,13 @@ banks.
   "lastSyncedAt": "2026-11-02T07:00:12Z",
   "banks": [
     {
-      "id": "0b9a6f0e-6c1e-4b7a-9a52-2f4d1c3e8a10",
+      "id": "caja-rural-navarra",
       "name": "Caja Rural de Navarra",
       "balance": { "amount": "3120.80", "currency": "EUR" },
       "connectionStatus": "active"
     },
     {
-      "id": "7d4e2b19-3f8a-4c55-b1d6-9e0a7c2f4b33",
+      "id": "trade-republic",
       "name": "Trade Republic",
       "balance": { "amount": "9752.65", "currency": "EUR" },
       "connectionStatus": "expiring"
@@ -84,21 +88,22 @@ banks.
 ```json
 {
   "bank": {
-    "id": "0b9a6f0e-6c1e-4b7a-9a52-2f4d1c3e8a10",
+    "id": "caja-rural-navarra",
     "name": "Caja Rural de Navarra"
   },
   "accounts": [
     {
       "id": "3f2c8d71-5a0b-4e9f-8c16-b7d2e4a90f55",
       "name": "Cuenta Corriente",
-      "maskedIban": "ES12 **** **** **** **** 4567",
+      "maskedIban": "ES12 **** 4567",
       "balance": { "amount": "3120.80", "currency": "EUR" }
     }
   ]
 }
 ```
 
-- `name` *nullable*: the bank may not send one; show the masked IBAN instead.
+- `name` *nullable*: the bank may not send one; show the masked IBAN instead. Banks send the holder's name or
+  their own product name here (`MI CUENTA`), as is.
 - `maskedIban` *nullable*: some accounts have no IBAN.
 - `404` if the bank doesn't exist.
 
@@ -140,8 +145,9 @@ Newest first (by `bookingDate`, then by arrival order).
 }
 ```
 
-- `description` and `counterparty` *nullable*: Trade Republic never sends them; other banks may not either.
-- `status`: `booked` or `pending`.
+- `description` and `counterparty` *nullable*: Trade Republic never sends them. Caja Rural always sends a
+  description, and a counterparty only for transfers.
+- `status`: `booked` or `pending`. Both banks have sent only `booked` so far, but the app must handle `pending`.
 - `nextCursor` *nullable*: `null` on the last page.
 - `400` if a query value is invalid (for example `from` after `to`); `404` if the account doesn't exist.
 
@@ -156,7 +162,7 @@ A connection is a bank linked through Enable Banking, with a consent that expire
   "items": [
     {
       "id": "a5d3f8e1-9b2c-4e7a-8f60-4c1b7d9e2a58",
-      "bankId": "0b9a6f0e-6c1e-4b7a-9a52-2f4d1c3e8a10",
+      "bankId": "caja-rural-navarra",
       "bankName": "Caja Rural de Navarra",
       "status": "active",
       "expiresAt": "2027-04-28T21:58:00Z"
@@ -166,6 +172,8 @@ A connection is a bank linked through Enable Banking, with a consent that expire
 ```
 
 #### Connection status
+
+Consents last what each bank allows: 180 days for Caja Rural de Navarra, **90 days for Trade Republic**.
 
 | Value | Meaning | What the app shows |
 |---|---|---|
@@ -181,7 +189,7 @@ A connection is a bank linked through Enable Banking, with a consent that expire
 { "bank": "caja-rural-navarra" }
 ```
 
-`bank` is `caja-rural-navarra` or `trade-republic`. Response `200`:
+`bank` is a bank code: `caja-rural-navarra` or `trade-republic`. Response `200`:
 
 ```json
 { "authorizationUrl": "https://tilisy.enablebanking.com/welcome?sessionid=…" }
@@ -209,3 +217,5 @@ appear.
 ## Changelog
 
 - 2026-11-02: first draft.
+- 2026-11-02: confirmed by the spike. Bank IDs are their codes instead of UUIDs; masked IBANs are shorter
+  (`ES12 **** 4567`); transaction IDs are not stable; consent length per bank; which fields each bank sends.

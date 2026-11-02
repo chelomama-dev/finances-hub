@@ -9,6 +9,7 @@
     <Project Path="src/FinancesHub.Sync/FinancesHub.Sync.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/FinancesHub.Domain.Tests/FinancesHub.Domain.Tests.csproj" />
     <Project Path="tests/FinancesHub.Infrastructure.Tests/FinancesHub.Infrastructure.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
