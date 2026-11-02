@@ -8,4 +8,10 @@
     <Project Path="src/FinancesHub.ServiceDefaults/FinancesHub.ServiceDefaults.csproj" />
     <Project Path="src/FinancesHub.Sync/FinancesHub.Sync.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FinancesHub.Infrastructure.Tests/FinancesHub.Infrastructure.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/FinancesHub.Spike/FinancesHub.Spike.csproj" />
+  </Folder>
 </Solution>
