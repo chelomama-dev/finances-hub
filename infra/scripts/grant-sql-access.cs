@@ -1,0 +1,86 @@
+// Creates a database user for a managed identity or an Entra group and gives it read or read/write access to the
+// data (never schema changes). Idempotent: safe to run on every deployment. It only adds roles, never removes them.
+//
+// Usage: dotnet run infra/scripts/grant-sql-access.cs -- <sql-server-fqdn> <database> <name> <id> <identity|group> <read|readwrite>
+//   identity: <id> is the managed identity's client ID. group: <id> is the group's object ID.
+// Authenticates as whoever runs it (Entra ID, via DefaultAzureCredential): it must be a SQL server admin.
+#:package Microsoft.Data.SqlClient@7.0.2
+#:package Microsoft.Data.SqlClient.Extensions.Azure@7.0.2
+// Pin: SqlClient 7.0.2 pulls 9.0.13, vulnerable to CVE-2026-84008 (high). Remove once SqlClient ships with a fixed one.
+#:package System.Security.Cryptography.Pkcs@10.0.13
+// File-based apps default to Native AOT, which adds an implicit ILCompiler reference tied to the exact SDK.
+// That made the lock file differ between machines (NU1004 in locked mode). This script doesn't need AOT.
+#:property PublishAot=false
+
+using System.Data;
+using Microsoft.Data.SqlClient;
+
+string? principalType = args.Length == 6 ? args[4] switch { "identity" => "E", "group" => "X", _ => null } : null;
+bool? canWrite = args.Length == 6 ? args[5] switch { "readwrite" => true, "read" => false, _ => null } : null;
+if (principalType is null || canWrite is null || !Guid.TryParse(args[3], out var id))
+{
+    Console.Error.WriteLine(
+        "Usage: grant-sql-access.cs <sql-server-fqdn> <database> <name> <id> <identity|group> <read|readwrite>");
+    return 1;
+}
+
+var (server, database, name) = (args[0], args[1], args[2]);
+
+var connectionString = new SqlConnectionStringBuilder
+{
+    DataSource = $"tcp:{server},1433",
+    InitialCatalog = database,
+    Authentication = SqlAuthenticationMethod.ActiveDirectoryDefault,
+    Encrypt = SqlConnectionEncryptOption.Mandatory,
+    // A serverless database may be resuming from auto-pause
+    ConnectTimeout = 60,
+}.ConnectionString;
+
+// WITH SID instead of FROM EXTERNAL PROVIDER: FROM EXTERNAL PROVIDER makes the SQL server look the name up in
+// Microsoft Graph, which fails when the caller is a service principal (the pipeline) unless the server has its own
+// identity with Directory Readers. With SID the lookup is skipped: for a managed identity the SID is its client ID
+// (TYPE = E), for a group its object ID (TYPE = X).
+// If the principal was recreated (new ID, same name), the stale user is dropped and created again.
+// User names and SIDs can't be parameters in DDL, so they go through QUOTENAME / CONVERT inside dynamic SQL.
+const string sql = """
+    DECLARE @sid varbinary(16) = CAST(@id AS varbinary(16));
+    DECLARE @user nvarchar(258) = QUOTENAME(@name);
+    DECLARE @stmt nvarchar(max);
+
+    IF EXISTS (SELECT 1 FROM sys.database_principals WHERE name = @name AND sid <> @sid)
+    BEGIN
+        SET @stmt = N'DROP USER ' + @user;
+        EXEC sp_executesql @stmt;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = @name)
+    BEGIN
+        SET @stmt = N'CREATE USER ' + @user + N' WITH SID = ' + CONVERT(nvarchar(34), @sid, 1) + N', TYPE = ' + @type;
+        EXEC sp_executesql @stmt;
+    END
+
+    IF IS_ROLEMEMBER('db_datareader', @name) = 0
+    BEGIN
+        SET @stmt = N'ALTER ROLE db_datareader ADD MEMBER ' + @user;
+        EXEC sp_executesql @stmt;
+    END
+
+    IF @canWrite = 1 AND IS_ROLEMEMBER('db_datawriter', @name) = 0
+    BEGIN
+        SET @stmt = N'ALTER ROLE db_datawriter ADD MEMBER ' + @user;
+        EXEC sp_executesql @stmt;
+    END
+    """;
+
+await using var connection = new SqlConnection(connectionString);
+await connection.OpenAsync();
+
+await using var command = new SqlCommand(sql, connection);
+command.Parameters.Add("@name", SqlDbType.NVarChar, 128).Value = name;
+command.Parameters.Add("@id", SqlDbType.UniqueIdentifier).Value = id;
+command.Parameters.Add("@type", SqlDbType.NChar, 1).Value = principalType;
+command.Parameters.Add("@canWrite", SqlDbType.Bit).Value = canWrite;
+await command.ExecuteNonQueryAsync();
+
+Console.WriteLine($"'{name}' can {(canWrite.Value ? "read and write" : "read")} data in {database}.");
+return 0;

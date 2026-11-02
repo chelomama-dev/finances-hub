@@ -15,3 +15,6 @@ param clientIpAddress = readEnvironmentVariable('CLIENT_IP', '')
 param enableBankingApplicationId = readEnvironmentVariable('ENABLE_BANKING_APPLICATION_ID')
 param authApiClientId = readEnvironmentVariable('AUTH_API_CLIENT_ID')
 param authOwnerObjectId = readEnvironmentVariable('AUTH_OWNER_OBJECT_ID')
+
+// 'true' once both secrets are in Key Vault (infra/README.md, First deployment)
+param appsEnabled = bool(readEnvironmentVariable('APPS_ENABLED', 'false'))

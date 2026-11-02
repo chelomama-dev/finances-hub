@@ -40,6 +40,11 @@ jobs:
       - name: Restore
         run: dotnet restore --locked-mode
 
+      # The deploy job runs this script, but it isn't part of the solution: restoring it here makes NuGet Audit
+      # check its packages on every PR instead of failing the deployment
+      - name: Restore deployment scripts
+        run: dotnet restore --locked-mode infra/scripts/grant-sql-access.cs
+
       - name: Build
         run: dotnet build --no-restore --configuration Release
 
@@ -117,7 +122,207 @@ jobs:
           ENABLE_BANKING_APPLICATION_ID: ci
           AUTH_API_CLIENT_ID: 00000000-0000-0000-0000-000000000000
           AUTH_OWNER_OBJECT_ID: 00000000-0000-0000-0000-000000000000
+          APPS_ENABLED: 'true'
         run: |
           az bicep install
           az bicep build --file infra/main.bicep --stdout > /dev/null
           az bicep build-params --file infra/main.bicepparam --stdout > /dev/null
+
+  publish:
+    # Only main gets images; PRs just build and test. A manual run on main (Actions → CI → Run workflow) publishes
+    # and deploys again, e.g. after turning APPS_ENABLED on
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: [backend, frontend, infra]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Images built by the .NET SDK, no Dockerfile. The source label links each package to this public repository,
+      # so it is public too and Container Apps pulls it without credentials
+      - name: Publish API image
+        run: >
+          dotnet publish src/FinancesHub.Api -c Release /t:PublishContainer
+          -p:RestoreLockedMode=true
+          -p:ContainerRegistry=ghcr.io
+          "-p:ContainerImageTags=\"sha-${GITHUB_SHA::7};latest\""
+
+      - name: Publish sync image
+        run: >
+          dotnet publish src/FinancesHub.Sync -c Release /t:PublishContainer
+          -p:RestoreLockedMode=true
+          -p:ContainerRegistry=ghcr.io
+          "-p:ContainerImageTags=\"sha-${GITHUB_SHA::7};latest\""
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: [publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The Azure identity only trusts tokens for this environment, and the environment only accepts main
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.api-url }}
+    # Never two deployments at once, and never cancel one halfway (a migration could be running)
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write # lets the job ask GitHub for the OIDC token that Azure exchanges for its own
+    env:
+      RESOURCE_GROUP: rg-financeshub
+      SQL_ADMIN_LOGIN: ${{ vars.SQL_ADMIN_GROUP_NAME }}
+      SQL_ADMIN_OBJECT_ID: ${{ vars.SQL_ADMIN_GROUP_ID }}
+      ENABLE_BANKING_APPLICATION_ID: ${{ vars.ENABLE_BANKING_APPLICATION_ID }}
+      AUTH_API_CLIENT_ID: ${{ vars.AUTH_API_CLIENT_ID }}
+      AUTH_OWNER_OBJECT_ID: ${{ vars.AUTH_OWNER_OBJECT_ID }}
+      # 'true' once both secrets are in Key Vault (infra/README.md, First deployment)
+      APPS_ENABLED: ${{ vars.APPS_ENABLED || 'false' }}
+      # SqlClient's 'Active Directory Default' uses the az session opened by azure/login, and nothing else
+      AZURE_TOKEN_CREDENTIALS: AzureCliCredential
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+
+      # Built before logging in to Azure: the login's federated token is short-lived. dotnet ef reads the project
+      # metadata before building, and that needs restored projects
+      - name: Build migration bundle
+        run: |
+          dotnet tool restore
+          dotnet restore --locked-mode
+          dotnet ef migrations bundle --project src/FinancesHub.Infrastructure --startup-project src/FinancesHub.Api \
+            --configuration Release --output efbundle --force
+
+      - name: Image tag
+        run: echo "IMAGE_TAG=sha-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - name: Azure login
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy infrastructure
+        id: deploy
+        run: |
+          az deployment group create --name main --resource-group "$RESOURCE_GROUP" \
+            --parameters infra/main.bicepparam --query properties.outputs --output json > outputs.json
+          {
+            echo "api-url=$(jq -r .apiUrl.value outputs.json)"
+            echo "sql-fqdn=$(jq -r .sqlServerFqdn.value outputs.json)"
+            echo "database=$(jq -r .databaseName.value outputs.json)"
+            echo "api-identity-name=$(jq -r .apiIdentityName.value outputs.json)"
+            echo "api-identity-client-id=$(jq -r .apiIdentityClientId.value outputs.json)"
+            echo "sync-identity-name=$(jq -r .syncIdentityName.value outputs.json)"
+            echo "sync-identity-client-id=$(jq -r .syncIdentityClientId.value outputs.json)"
+          } >> "$GITHUB_OUTPUT"
+
+      # azure/login keeps GitHub's OIDC token and exchanges it again for every new Azure resource (here, SQL). That
+      # token expires a few minutes after it was issued, and a first deployment takes longer, so log in again
+      - name: Azure login (refresh)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # The runner's IP changes on every run, so it gets a temporary firewall rule just for this job
+      - name: Open SQL firewall to the runner
+        id: firewall
+        env:
+          SQL_FQDN: ${{ steps.deploy.outputs.sql-fqdn }}
+        run: |
+          ip=$(curl -fsS https://api.ipify.org)
+          az sql server firewall-rule create --resource-group "$RESOURCE_GROUP" --server "${SQL_FQDN%%.*}" \
+            --name "github-run-$GITHUB_RUN_ID" --start-ip-address "$ip" --end-ip-address "$ip" --output none
+
+      - name: Apply migrations
+        env:
+          SQL_FQDN: ${{ steps.deploy.outputs.sql-fqdn }}
+          DATABASE: ${{ steps.deploy.outputs.database }}
+        run: |
+          ./efbundle --connection \
+            "Server=tcp:$SQL_FQDN,1433;Database=$DATABASE;Authentication=Active Directory Default;Encrypt=True;Connect Timeout=60"
+
+      # Least privilege: the apps read and write data but can't change the schema; only the migrations do that
+      - name: Grant the API access to the database
+        run: >
+          dotnet run infra/scripts/grant-sql-access.cs --
+          ${{ steps.deploy.outputs.sql-fqdn }}
+          ${{ steps.deploy.outputs.database }}
+          ${{ steps.deploy.outputs.api-identity-name }}
+          ${{ steps.deploy.outputs.api-identity-client-id }}
+          identity readwrite
+
+      - name: Grant the sync access to the database
+        run: >
+          dotnet run infra/scripts/grant-sql-access.cs --
+          ${{ steps.deploy.outputs.sql-fqdn }}
+          ${{ steps.deploy.outputs.database }}
+          ${{ steps.deploy.outputs.sync-identity-name }}
+          ${{ steps.deploy.outputs.sync-identity-client-id }}
+          identity readwrite
+
+      # People look at the data through this group, never as admins (infra/README.md)
+      - name: Grant the readers group read access to the database
+        run: >
+          dotnet run infra/scripts/grant-sql-access.cs --
+          ${{ steps.deploy.outputs.sql-fqdn }}
+          ${{ steps.deploy.outputs.database }}
+          ${{ vars.SQL_READER_GROUP_NAME }}
+          ${{ vars.SQL_READER_GROUP_ID }}
+          group read
+
+      - name: Close SQL firewall
+        if: always() && steps.firewall.outcome == 'success'
+        env:
+          SQL_FQDN: ${{ steps.deploy.outputs.sql-fqdn }}
+        run: |
+          az sql server firewall-rule delete --resource-group "$RESOURCE_GROUP" --server "${SQL_FQDN%%.*}" \
+            --name "github-run-$GITHUB_RUN_ID"
+
+      # Through the public URL: the API must be up (/alive) and must reject a request without a token. A 401 proves
+      # both that it answers and that it isn't open. Retries cover the cold start (scale from zero, database resuming)
+      - name: Smoke test
+        if: env.APPS_ENABLED == 'true'
+        env:
+          API_URL: ${{ steps.deploy.outputs.api-url }}
+        run: |
+          curl -fsS --retry 12 --retry-delay 15 --retry-all-errors --max-time 90 -o /dev/null "$API_URL/alive"
+          for attempt in $(seq 1 12); do
+            status=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 90 "$API_URL/api/summary" || true)
+            echo "Attempt $attempt: API without token → $status"
+            [[ "$status" == "401" ]] && exit 0
+            sleep 15
+          done
+          echo "::error::Expected 401 from the API without a token, last status: $status"
+          exit 1

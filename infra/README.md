@@ -33,6 +33,80 @@ The images come from GHCR (public packages, so no registry credentials). Always 
   apps' configuration; Container Apps reads them with each app's identity and picks up a new version within 30
   minutes.
 
+## First deployment
+
+Once, in this order. Steps 1, 2 and 4 need your rights in the tenant, the subscription and the repo; the rest is the
+pipeline.
+
+1. **Pipeline access** (Azure resource groups, the deployment identity trusted by GitHub's OIDC tokens, the SQL
+   groups, the GitHub environment and its variables). Needs `az` logged in as a subscription Owner and `gh` as a repo
+   admin:
+
+   ```bash
+   infra/scripts/bootstrap-github-oidc.sh
+   ```
+
+2. **The API's app registration** (the scope the app asks for, assignment required with only you assigned, and the
+   last variables):
+
+   ```bash
+   infra/scripts/bootstrap-entra-api.sh <Enable Banking application ID>
+   ```
+
+3. **Deploy without the apps.** Any push to `main` (or Actions → CI → *Run workflow* on `main`) deploys. With
+   `APPS_ENABLED` unset, it creates everything but the API and the sync, applies the migrations and creates the
+   database users.
+
+4. **The secrets.** Give yourself the right to write them, then set them (see [Secrets](#secrets)):
+
+   ```bash
+   VAULT=$(az deployment group show -g rg-financeshub -n main --query properties.outputs.keyVaultName.value -o tsv)
+   az role assignment create --assignee "$(az ad signed-in-user show --query id -o tsv)" \
+     --role "Key Vault Secrets Officer" --scope "$(az keyvault show -n "$VAULT" --query id -o tsv)"
+   ```
+
+5. **Turn the apps on**: `gh variable set APPS_ENABLED --env production --body true`, then run the workflow on
+   `main` again. The smoke test checks that the API answers and rejects a request without a token.
+
+6. **Register the bank callback** in Enable Banking (see [Enable Banking](#enable-banking)) and link the banks.
+
+## Continuous deployment
+
+Every push to `main` deploys: `publish` pushes the `sha-xxxxxxx` images of the API and the sync to GHCR, and `deploy`
+logs in to Azure with OIDC (no Azure secret in GitHub), deploys the Bicep, applies the migrations with an EF Core
+bundle, makes sure the apps' identities and the readers group have their database users, and runs a smoke test.
+
+| Created by `bootstrap-github-oidc.sh` | Where | Why |
+|---|---|---|
+| Resource providers registered | Subscription | A subscription can't create a resource type until it is registered, and the pipeline has no subscription-wide rights |
+| `rg-financeshub` | Azure | The app; the pipeline is Contributor here and nowhere else |
+| *Role Based Access Control Administrator* on `rg-financeshub`, with a condition | Azure | Lets the pipeline give the apps' identities *Monitoring Metrics Publisher* and *Key Vault Secrets User*, and no other role |
+| `id-financeshub-github` + federated credential | `rg-financeshub-cicd` | The pipeline's identity, trusted only for this repo's `production` environment; outside `rg-financeshub` so it survives a tear down |
+| `sg-financeshub-sql-admins` (the pipeline only) | Entra ID | The SQL server's admin. The script warns if you are in it |
+| `sg-financeshub-readers` (you) | Entra ID | Day-to-day read access to the data; the pipeline makes it `db_datareader` |
+| Environment `production` (deploys from `main` only) + variables | GitHub | Identifiers, not secrets |
+
+| Created by `bootstrap-entra-api.sh` | Why |
+|---|---|
+| App registration *Finances Hub API*: `api://<client id>`, scope `access_as_user`, v2 tokens | The audience and scope the API validates |
+| Assignment required, only you assigned | Entra ID gives tokens for the API to nobody else; the API's owner check is the second lock |
+| Variables `AUTH_API_CLIENT_ID`, `AUTH_OWNER_OBJECT_ID`, `ENABLE_BANKING_APPLICATION_ID` | Read by `main.bicepparam`; kept out of the public repo |
+
+## Access for people
+
+You are a reader day to day: you can query the data but not change it. Being a SQL admin is something you switch on
+for one task and off again:
+
+```bash
+ME=$(az ad signed-in-user show --query id -o tsv)
+az ad group member add --group sg-financeshub-sql-admins --member-id "$ME"
+# ... the task (sign out and in again in your SQL client: group membership travels in the token) ...
+az ad group member remove --group sg-financeshub-sql-admins --member-id "$ME"
+```
+
+To query the database, the firewall must allow your IP (`CLIENT_IP` in a manual deployment, or
+`az sql server firewall-rule create`), and the client signs in with *Microsoft Entra ID*: there are no SQL logins.
+
 ## Manual deployment
 
 Prerequisites: Azure CLI logged in (`az login`), Bicep (`az bicep install`), the .NET SDK and `dotnet tool restore`.
@@ -45,7 +119,8 @@ az group create --name rg-financeshub --location francecentral --tags app=financ
 
 ### 2. Parameters
 
-`main.bicepparam` reads them from the environment, so no IDs are in this public repo:
+`main.bicepparam` reads them from the environment, so no IDs are in this public repo (the pipeline takes them from
+the GitHub environment's variables):
 
 ```bash
 export IMAGE_TAG=sha-$(git rev-parse --short=7 origin/main)   # an image the CI already published
@@ -55,6 +130,7 @@ export CLIENT_IP=$(curl -s https://api.ipify.org)               # opens the SQL 
 export ENABLE_BANKING_APPLICATION_ID=<application id from Enable Banking's control panel>
 export AUTH_API_CLIENT_ID=<client id of the API's app registration>
 export AUTH_OWNER_OBJECT_ID=$(az ad signed-in-user show --query id -o tsv)   # the only person the API lets in
+export APPS_ENABLED=true                                         # false until the secrets are in Key Vault
 ```
 
 ### 3. Preview, then deploy
@@ -68,8 +144,8 @@ Deployments are idempotent: running `create` again only changes what differs fro
 
 ## Secrets
 
-Two secrets, set once by a person with a role that can write secrets (*Key Vault Secrets Officer* on the vault).
-Until both exist, no revision of the API or execution of the sync can start.
+Two secrets, set once by a person with a role that can write secrets (*Key Vault Secrets Officer* on the vault, see
+[First deployment](#first-deployment)). Until both exist, the apps can't start, which is why `APPS_ENABLED` stays off.
 
 ```bash
 VAULT=$(az deployment group show -g rg-financeshub -n main --query properties.outputs.keyVaultName.value -o tsv)

@@ -35,6 +35,12 @@ param enableBankingApplicationId string
 @description('When the sync runs, as a cron expression in UTC.')
 param syncSchedule string = '0 6,12,18,22 * * *'
 
+// Off on the very first deployment: the apps read their secrets from Key Vault, and the vault is created by this
+// same deployment, empty. A container app whose Key Vault secret is missing never starts. Turn it on once the
+// secrets are in the vault (infra/README.md, First deployment)
+@description('Whether to deploy the API and the sync. Needs both secrets in Key Vault.')
+param appsEnabled bool = false
+
 @description('The API\'s Entra ID app registration (client) ID: the audience of the tokens it accepts.')
 param authApiClientId string
 
@@ -100,7 +106,7 @@ module keyVault 'modules/keyvault.bicep' = {
   }
 }
 
-module apps 'modules/container-apps.bicep' = {
+module apps 'modules/container-apps.bicep' = if (appsEnabled) {
   params: {
     location: location
     appName: appName
@@ -126,11 +132,14 @@ module apps 'modules/container-apps.bicep' = {
   }
 }
 
-output apiUrl string = 'https://${apps.outputs.apiFqdn}'
-output bankCallbackUrl string = 'https://${apps.outputs.apiFqdn}/api/connections/callback'
-output syncJobName string = apps.outputs.syncJobName
+output appsEnabled bool = appsEnabled
+output apiUrl string = appsEnabled ? 'https://${apps!.outputs.apiFqdn}' : ''
+output bankCallbackUrl string = appsEnabled ? 'https://${apps!.outputs.apiFqdn}/api/connections/callback' : ''
+output syncJobName string = appsEnabled ? apps!.outputs.syncJobName : ''
 output sqlServerFqdn string = sql.outputs.serverFqdn
 output databaseName string = sql.outputs.databaseName
 output keyVaultName string = keyVault.outputs.name
 output apiIdentityName string = apiIdentity.name
+output apiIdentityClientId string = apiIdentity.properties.clientId
 output syncIdentityName string = syncIdentity.name
+output syncIdentityClientId string = syncIdentity.properties.clientId
