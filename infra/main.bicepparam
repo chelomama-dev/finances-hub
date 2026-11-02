@@ -14,3 +14,4 @@ param sqlAdminPrincipalType = readEnvironmentVariable('SQL_ADMIN_PRINCIPAL_TYPE'
 param clientIpAddress = readEnvironmentVariable('CLIENT_IP', '')
 param enableBankingApplicationId = readEnvironmentVariable('ENABLE_BANKING_APPLICATION_ID')
 param authApiClientId = readEnvironmentVariable('AUTH_API_CLIENT_ID')
+param authOwnerObjectId = readEnvironmentVariable('AUTH_OWNER_OBJECT_ID')
