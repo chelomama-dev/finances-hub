@@ -658,6 +658,7 @@
           "Aspire.Microsoft.EntityFrameworkCore.SqlServer": "[13.6.4, )",
           "FinancesHub.Application": "[1.0.0, )",
           "Microsoft.EntityFrameworkCore.SqlServer": "[10.0.14, )",
+          "Microsoft.Extensions.Http.Resilience": "[10.11.0, )",
           "System.Security.Cryptography.Pkcs": "[10.0.14, )"
         }
       },
