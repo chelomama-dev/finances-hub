@@ -118,8 +118,13 @@ src/
   FinancesHub.Sync/            pulls balances and transactions from the banks, then exits
   FinancesHub.AppHost/         Aspire orchestration for local dev
   FinancesHub.ServiceDefaults/ OpenTelemetry, health checks, resilience
+tests/                         backend tests (coming)
+docs/api.md                    HTTP contract between the API and the app
 mobile/                        Flutter app (coming)
 ```
+
+The project is built with two AI agents, each in its own area: Claude Code (backend, tests, CI/CD, Azure) and
+Antigravity (Flutter app). Their roles and rules are in [AGENTS.md](AGENTS.md).
 
 ## Run it locally
 
