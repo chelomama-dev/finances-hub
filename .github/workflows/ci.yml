@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  # Lets the Dependabot lock files workflow run the checks again after its commit:
+  # pushes made with GITHUB_TOKEN don't start workflows, but a dispatch does
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+
+      # Locked: the build uses exactly the versions in packages.lock.json. NuGet Audit runs here too, and in CI
+      # high and critical advisories fail it (see Directory.Build.props)
+      - name: Restore
+        run: dotnet restore --locked-mode
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      # The persistence tests start SQL Server with Testcontainers; the runner has Docker
+      - name: Test
+        run: dotnet test --no-build --configuration Release --report-xunit-trx --results-directory TestResults
+
+      - name: Test report
+        if: ${{ !cancelled() }}
+        uses: dorny/test-reporter@v3
+        with:
+          name: Backend tests
+          path: TestResults/*.trx
+          reporter: dotnet-trx
