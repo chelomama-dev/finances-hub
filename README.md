@@ -121,7 +121,7 @@ src/
 tests/                         backend tests (coming)
 docs/api.md                    HTTP contract between the API and the app
 docs/adr/                      architecture decision records
-mobile/                        Flutter app (coming)
+mobile/                        Flutter app (see mobile/README.md)
 ```
 
 ## Run it locally

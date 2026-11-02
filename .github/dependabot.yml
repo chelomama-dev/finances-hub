@@ -33,6 +33,20 @@ updates:
       - dependency-name: dotnet-sdk
         versions: [">= 10.0.200"]
 
+  - package-ecosystem: pub
+    directory: /mobile
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      flutter:
+        patterns: ["*"]
+        update-types: [minor, patch]
+      flutter-major:
+        patterns: ["*"]
+        update-types: [major]
+    open-pull-requests-limit: 5
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

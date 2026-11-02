@@ -508,3 +508,7 @@ venv/
 secrets.json
 # Raw responses from the Enable Banking spike: real bank data
 .spike/
+
+# The Visual Studio rules above ignore every debug/ and release/ folder; Android keeps build-type sources in them
+!mobile/android/app/src/debug/
+!mobile/android/app/src/release/
