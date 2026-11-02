@@ -42,10 +42,20 @@ Shared files (`AGENTS.md`, `README.md`, `.gitignore`): either agent may propose 
 
 ### Git
 
-- One branch per task, prefixed by area: `backend/...`, `mobile/...`, `ci/...`, `infra/...`, `docs/...`. Pull request to `main`.
-- Commit messages: a short sentence in the imperative, no prefixes (`Add the transactions endpoint`, not
-  `feat: added endpoint`). One logical change per commit.
-- Never push, merge or force-push unless the owner asks.
+Nothing is committed straight to `main`: every change goes in a branch and reaches `main` through a pull request,
+squash merged.
+
+- Branch prefixes: `feat/`, `fix/`, `chore/`, `docs/`, `refactor/`. Lowercase, hyphens, short
+  (`feat/transactions-endpoint`, `feat/mobile-summary-screen`).
+- Commit messages in English, in the imperative, starting with a capital letter and no prefixes
+  (`Add the transactions endpoint`, not `feat: added endpoint`). If the why isn't obvious, explain it in the body.
+  One logical change per commit.
+- **Claude Code runs the git flow for the whole repo**: push, pull request, squash merge once the build, the tests
+  and the CI checks are green, and then a clean local copy (`main` up to date, merged branches deleted, `git fetch
+  --prune`). If something fails or is unclear, it stops and tells the owner before merging.
+- **Antigravity** works in its own `feat/mobile-...` branch and commits there, but doesn't push or merge: when its
+  work is ready, it tells the owner, and Claude Code opens and merges the pull request.
+- Never force-push to `main` or rewrite its history.
 
 ## Repository layout
 
