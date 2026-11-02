@@ -8,7 +8,7 @@ var builder = Host.CreateApplicationBuilder(args);
 
 builder.AddServiceDefaults();
 builder.AddInfrastructure();
-builder.Services.AddApplication();
+builder.Services.AddApplication(builder.Configuration);
 
 // Checked at startup: a missing registration fails the run right away instead of halfway through a sync
 builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions

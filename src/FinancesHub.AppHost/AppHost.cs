@@ -12,12 +12,16 @@ var enableBankingAppId = builder.AddParameter("enablebanking-application-id");
 var enableBankingKeyPath = builder.AddParameter("enablebanking-private-key-path");
 var enableBankingRedirectUrl = builder.AddParameter("enablebanking-redirect-url");
 
+// IBANs that may be stored, comma-separated (see BankLinkingOptions). Personal data: user secrets only
+var allowedIbans = builder.AddParameter("bank-linking-allowed-ibans", secret: true);
+
 var api = builder.AddProject<Projects.FinancesHub_Api>("api")
     .WithReference(db)
     .WaitFor(db)
     .WithEnvironment("EnableBanking__ApplicationId", enableBankingAppId)
     .WithEnvironment("EnableBanking__PrivateKeyPath", enableBankingKeyPath)
-    .WithEnvironment("EnableBanking__RedirectUrl", enableBankingRedirectUrl);
+    .WithEnvironment("EnableBanking__RedirectUrl", enableBankingRedirectUrl)
+    .WithEnvironment("BankLinking__AllowedIbans", allowedIbans);
 
 // Pulls balances and transactions from the banks once and exits, like the Container Apps Job it becomes in Azure.
 // It waits for the API because the API applies the migrations in development. To run it again, restart it from
