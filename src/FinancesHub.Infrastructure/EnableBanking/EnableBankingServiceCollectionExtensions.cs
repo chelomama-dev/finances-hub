@@ -1,5 +1,7 @@
+using FinancesHub.Application.Banking;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
 namespace FinancesHub.Infrastructure.EnableBanking;
@@ -10,6 +12,13 @@ public static class EnableBankingServiceCollectionExtensions
 
     // Registers an HttpClient for the Enable Banking API that signs every request. The options are checked at
     // startup, so a missing application ID or key fails right away instead of on the first call
+    /// <summary>Registers <see cref="IBankingProvider"/> over Enable Banking.</summary>
+    public static IServiceCollection AddEnableBanking(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddEnableBankingHttpClient(configuration).AddTypedClient<IBankingProvider, EnableBankingProvider>();
+        return services;
+    }
+
     public static IHttpClientBuilder AddEnableBankingHttpClient(
         this IServiceCollection services, IConfiguration configuration)
     {
@@ -21,7 +30,7 @@ public static class EnableBankingServiceCollectionExtensions
                 $"{EnableBankingOptions.SectionName}:PrivateKey or an existing PrivateKeyPath is required")
             .ValidateOnStart();
 
-        services.AddSingleton(TimeProvider.System);
+        services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<EnableBankingTokenProvider>();
         services.AddTransient<EnableBankingAuthHandler>();
 
