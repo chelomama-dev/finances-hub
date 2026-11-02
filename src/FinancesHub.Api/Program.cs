@@ -49,10 +49,10 @@ if (app.Environment.IsDevelopment())
     }
 
     app.MapOpenApi();
-
-    // In Azure the ingress already redirects HTTP to HTTPS, and the container has no HTTPS port to redirect to
-    app.UseHttpsRedirection();
 }
+
+// No HTTPS redirection: in Azure the ingress already redirects HTTP to HTTPS, and locally the Android app talks
+// plain HTTP to port 5080 (the emulator or a phone don't trust the development certificate)
 
 await app.RunAsync();
 
