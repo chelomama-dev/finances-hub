@@ -22,11 +22,16 @@ updates:
         update-types: [major]
     open-pull-requests-limit: 5
 
+  # Only patches within the 10.0.1xx feature band: it is the one Ubuntu packages, so the SDK on the development
+  # machine (from apt) and CI stay the same and everything still builds locally. Security fixes ship to every band
   - package-ecosystem: dotnet-sdk
     directory: /
     schedule:
       interval: weekly
       day: monday
+    ignore:
+      - dependency-name: dotnet-sdk
+        versions: [">= 10.0.200"]
 
   - package-ecosystem: github-actions
     directory: /
