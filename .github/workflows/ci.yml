@@ -98,3 +98,25 @@ jobs:
       # Catches Android build problems (Gradle, manifest, resources) on every PR. The release APK comes later
       - name: Build debug APK
         run: flutter build apk --debug --dart-define=DEMO=true
+
+  infra:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Compiles the templates offline (no Azure login): catches syntax errors, linter warnings and parameters
+      # that don't match main.bicep. The parameter file reads environment variables, so they get dummies
+      - name: Build Bicep
+        env:
+          IMAGE_TAG: sha-0000000
+          SQL_ADMIN_LOGIN: ci
+          SQL_ADMIN_OBJECT_ID: 00000000-0000-0000-0000-000000000000
+          ENABLE_BANKING_APPLICATION_ID: ci
+          AUTH_API_CLIENT_ID: 00000000-0000-0000-0000-000000000000
+        run: |
+          az bicep install
+          az bicep build --file infra/main.bicep --stdout > /dev/null
+          az bicep build-params --file infra/main.bicepparam --stdout > /dev/null
