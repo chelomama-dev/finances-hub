@@ -23,6 +23,8 @@ param syncSchedule string
 param authTenantId string
 @description('The API\'s app registration (client) ID: the audience of the tokens it accepts.')
 param authApiClientId string
+@description('The owner\'s object ID in the tenant: the only person whose tokens the API accepts.')
+param authOwnerObjectId string
 
 resource workspace 'Microsoft.OperationalInsights/workspaces@2025-07-01' existing = {
   name: workspaceName
@@ -160,6 +162,10 @@ resource api 'Microsoft.App/containerApps@2026-01-01' = {
               {
                 name: 'Authentication__ClientId'
                 value: authApiClientId
+              }
+              {
+                name: 'Authentication__OwnerObjectId'
+                value: authOwnerObjectId
               }
             ]
           )

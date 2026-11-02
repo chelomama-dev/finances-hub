@@ -116,6 +116,7 @@ jobs:
           SQL_ADMIN_OBJECT_ID: 00000000-0000-0000-0000-000000000000
           ENABLE_BANKING_APPLICATION_ID: ci
           AUTH_API_CLIENT_ID: 00000000-0000-0000-0000-000000000000
+          AUTH_OWNER_OBJECT_ID: 00000000-0000-0000-0000-000000000000
         run: |
           az bicep install
           az bicep build --file infra/main.bicep --stdout > /dev/null

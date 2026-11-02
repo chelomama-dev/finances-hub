@@ -23,7 +23,8 @@ The images come from GHCR (public packages, so no registry credentials). Always 
   subscription's first one (Plumy's) is in France Central. Everything stays in that region.
 - **The API is public, the data is not.** The Android app calls the API from anywhere, and the bank sends the
   browser back to it after a login, so its ingress is external. Every endpoint except the health checks and the
-  bank's callback requires an Entra ID token, and nothing is deployed before that is in place.
+  bank's callback requires an Entra ID access token with the API's scope **and the owner's object ID**: anyone else
+  signed in to the tenant gets a 403. Outside Development the API refuses to start without that configuration.
 - **A job, not an app, for the sync.** A Container Apps job runs, exits and costs only while it runs. Banks allow
   about four background requests a day, so it runs four times (`0 6,12,18,22 * * *` in UTC: 7, 13, 19 and 23 in Spain
   in winter) and never retries a failed run: the next run picks up what this one missed
@@ -53,6 +54,7 @@ export SQL_ADMIN_OBJECT_ID=$(az ad group show --group sg-financeshub-sql-admins 
 export CLIENT_IP=$(curl -s https://api.ipify.org)               # opens the SQL firewall to your machine only
 export ENABLE_BANKING_APPLICATION_ID=<application id from Enable Banking's control panel>
 export AUTH_API_CLIENT_ID=<client id of the API's app registration>
+export AUTH_OWNER_OBJECT_ID=$(az ad signed-in-user show --query id -o tsv)   # the only person the API lets in
 ```
 
 ### 3. Preview, then deploy

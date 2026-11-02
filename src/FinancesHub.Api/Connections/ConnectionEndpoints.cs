@@ -26,7 +26,7 @@ public static partial class ConnectionEndpoints
         group.MapPost("/{connectionId:guid}/renew", RenewAsync);
 
         // The bank's browser redirect: no app token can come with it; the one-use state is what protects it
-        app.MapGet(CallbackPath, CallbackAsync).WithTags("Connections").ExcludeFromDescription();
+        app.MapGet(CallbackPath, CallbackAsync).WithTags("Connections").ExcludeFromDescription().AllowAnonymous();
 
         // Where the browser lands in development instead of the app's deep link, which a desktop browser can't open
         if (app.ServiceProvider.GetRequiredService<IHostEnvironment>().IsDevelopment())
@@ -34,7 +34,7 @@ public static partial class ConnectionEndpoints
             app.MapGet(DevResultPath, (string? status, string? synced, string? reason) => TypedResults.Text(
                 status == "success"
                     ? $"Banco vinculado. Datos cargados: {(synced == "true" ? "sí" : "no, se reintentará en el próximo sync")}."
-                    : $"No se ha podido vincular el banco ({reason}). Mira los logs de la API.")).ExcludeFromDescription();
+                    : $"No se ha podido vincular el banco ({reason}). Mira los logs de la API.")).ExcludeFromDescription().AllowAnonymous();
         }
 
         return app;

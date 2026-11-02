@@ -38,6 +38,9 @@ param syncSchedule string = '0 6,12,18,22 * * *'
 @description('The API\'s Entra ID app registration (client) ID: the audience of the tokens it accepts.')
 param authApiClientId string
 
+@description('The owner\'s object ID in the tenant: the only person whose tokens the API accepts.')
+param authOwnerObjectId string
+
 var tags = {
   app: appName
   managedBy: 'bicep'
@@ -119,6 +122,7 @@ module apps 'modules/container-apps.bicep' = {
     syncSchedule: syncSchedule
     authTenantId: tenant().tenantId
     authApiClientId: authApiClientId
+    authOwnerObjectId: authOwnerObjectId
   }
 }
 

@@ -1,3 +1,4 @@
+using FinancesHub.Api.Common;
 using FinancesHub.Api.Connections;
 using FinancesHub.Api.Finances;
 using FinancesHub.Application;
@@ -9,6 +10,9 @@ using Microsoft.AspNetCore.HttpOverrides;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+// First: outside Development the API refuses to start without it
+builder.AddEntraAuthentication();
 builder.AddInfrastructure();
 builder.Services.AddApplication(builder.Configuration);
 
@@ -36,6 +40,9 @@ app.UseForwardedHeaders();
 
 app.UseExceptionHandler();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapDefaultEndpoints();
 app.MapConnections();
 app.MapFinances();
@@ -48,7 +55,7 @@ if (app.Environment.IsDevelopment())
         await scope.ServiceProvider.GetRequiredService<FinancesDbContext>().Database.MigrateAsync();
     }
 
-    app.MapOpenApi();
+    app.MapOpenApi().AllowAnonymous();
 }
 
 // No HTTPS redirection: in Azure the ingress already redirects HTTP to HTTPS, and locally the Android app talks

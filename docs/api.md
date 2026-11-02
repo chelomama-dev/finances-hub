@@ -30,8 +30,10 @@ The HTTP contract between the backend (`src/FinancesHub.Api`) and the Flutter ap
   `{ "amount": "-23.40", "currency": "EUR" }`. Negative amounts are expenses, positive ones are income.
 - **Dates**: `bookingDate` is a date with no time (`"2026-11-01"`). Timestamps are UTC ISO 8601
   (`"2026-11-02T07:00:12Z"`).
-- **Auth**: none in local development. In Azure, every request needs `Authorization: Bearer <token>` from Microsoft
-  Entra ID; without it the API returns `401`.
+- **Auth**: none in local development. In Azure, every request needs `Authorization: Bearer <token>`: a Microsoft
+  Entra ID access token for the API, with the delegated scope `api://<API client id>/access_as_user`, signed in as
+  the owner. Without a valid token the API answers `401`; with a valid token for someone else, `403`. The bank's
+  callback and the health checks are the only anonymous endpoints.
 - **Errors** use ProblemDetails (RFC 9457), `Content-Type: application/problem+json`:
 
   ```json
@@ -231,3 +233,4 @@ accounts in the backend's allowed list are saved, whatever the owner shares in t
   carries `synced`, and the login URL is valid for 30 minutes.
 - 2026-11-02: summary, accounts and transactions implemented. Same-day transactions come in a stable order rather
   than arrival order.
+- 2026-11-02: auth in Azure: the `access_as_user` scope, and `403` for a valid token that isn't the owner's.
