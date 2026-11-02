@@ -126,11 +126,23 @@ mobile/                        Flutter app (coming)
 
 ## Run it locally
 
-Requires the .NET 10 SDK, Docker and the Aspire CLI. Then:
+Requires the .NET 10 SDK, Docker and the Aspire CLI, and an Enable Banking application (its ID and its private key
+as a `.pem` file outside the repo). Give them to the AppHost once, as user secrets:
+
+```bash
+dotnet user-secrets --project src/FinancesHub.AppHost set "Parameters:enablebanking-application-id" "<application id>"
+dotnet user-secrets --project src/FinancesHub.AppHost set "Parameters:enablebanking-private-key-path" "$HOME/.secrets/enablebanking/<application id>.pem"
+dotnet user-secrets --project src/FinancesHub.AppHost set "Parameters:enablebanking-redirect-url" "https://localhost:7017/callback"
+```
+
+Then:
 
 ```bash
 aspire run
 ```
+
+The API brings the database up to date on startup, and the sync runs once and exits; restart it from the dashboard
+to sync again. Tests need Docker too: the persistence tests run against SQL Server in a container.
 
 ## Cost
 
