@@ -11,7 +11,7 @@ using Testcontainers.MsSql;
 namespace FinancesHub.Api.Tests;
 
 // The real API (Development, so it applies the migrations) against SQL Server in a container, with the banks faked
-public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly MsSqlContainer _sql = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest").Build();
     private readonly RSA _key = RSA.Create(2048);
