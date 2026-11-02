@@ -29,6 +29,11 @@ public sealed class Transaction
 
     public TransactionDirection Direction => Amount.Amount < 0 ? TransactionDirection.Expense : TransactionDirection.Income;
 
+    // For EF Core, which can't pass Amount (a complex type) through a constructor
+    private Transaction()
+    {
+    }
+
     private Transaction(Guid id, Guid accountId, DateOnly bookingDate, DateOnly? valueDate, Money amount,
         string? description, string? counterparty, TransactionStatus status)
     {

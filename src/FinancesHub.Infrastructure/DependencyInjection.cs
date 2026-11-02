@@ -1,4 +1,8 @@
+using FinancesHub.Application.Abstractions;
+using FinancesHub.Infrastructure.EnableBanking;
 using FinancesHub.Infrastructure.Persistence;
+using FinancesHub.Infrastructure.Persistence.Repositories;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 namespace FinancesHub.Infrastructure;
@@ -12,6 +16,13 @@ public static class DependencyInjection
     {
         // Registers the DbContext with retries, health check and OpenTelemetry
         builder.AddSqlServerDbContext<FinancesDbContext>(DatabaseName);
+
+        builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+        builder.Services.AddScoped<IConnectionRepository, ConnectionRepository>();
+        builder.Services.AddScoped<IAccountRepository, AccountRepository>();
+        builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
+
+        builder.Services.AddEnableBanking(builder.Configuration);
 
         return builder;
     }
