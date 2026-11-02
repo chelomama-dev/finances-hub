@@ -25,32 +25,42 @@ public sealed partial class SyncBanks(
     public async Task<SyncResult> RunAsync(CancellationToken cancellationToken)
     {
         var result = new SyncResult();
-
         foreach (var connection in await connections.ListAsync(cancellationToken))
-        {
-            if (!await CanReadAsync(connection, cancellationToken))
-            {
-                result.SkippedConnections++;
-                continue;
-            }
-
-            foreach (var account in await accounts.ListByConnectionAsync(connection.Id, cancellationToken))
-            {
-                try
-                {
-                    await SyncAccountAsync(account, cancellationToken);
-                    result.SyncedAccounts++;
-                }
-                catch (Exception e) when (e is BankingProviderException or DomainException or HttpRequestException or TaskCanceledException
-                                          && !cancellationToken.IsCancellationRequested)
-                {
-                    LogAccountFailed(e, connection.Bank.Name, account.Id);
-                    result.FailedAccounts++;
-                }
-            }
-        }
+            await SyncConnectionAsync(connection, result, cancellationToken);
 
         return result;
+    }
+
+    /// <summary>Syncs one connection's accounts, as right after linking it.</summary>
+    public async Task<SyncResult> RunAsync(Connection connection, CancellationToken cancellationToken)
+    {
+        var result = new SyncResult();
+        await SyncConnectionAsync(connection, result, cancellationToken);
+        return result;
+    }
+
+    private async Task SyncConnectionAsync(Connection connection, SyncResult result, CancellationToken cancellationToken)
+    {
+        if (!await CanReadAsync(connection, cancellationToken))
+        {
+            result.SkippedConnections++;
+            return;
+        }
+
+        foreach (var account in await accounts.ListByConnectionAsync(connection.Id, cancellationToken))
+        {
+            try
+            {
+                await SyncAccountAsync(account, cancellationToken);
+                result.SyncedAccounts++;
+            }
+            catch (Exception e) when (e is BankingProviderException or DomainException or HttpRequestException or TaskCanceledException
+                                      && !cancellationToken.IsCancellationRequested)
+            {
+                LogAccountFailed(e, connection.Bank.Name, account.Id);
+                result.FailedAccounts++;
+            }
+        }
     }
 
     private async Task<bool> CanReadAsync(Connection connection, CancellationToken cancellationToken)

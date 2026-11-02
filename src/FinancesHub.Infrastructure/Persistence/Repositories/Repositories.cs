@@ -11,7 +11,20 @@ internal sealed class ConnectionRepository(FinancesDbContext db) : IConnectionRe
     public async Task<IReadOnlyList<Connection>> ListAsync(CancellationToken cancellationToken) =>
         await db.Connections.OrderBy(c => c.CreatedAt).ToListAsync(cancellationToken);
 
+    public async Task<Connection?> GetAsync(Guid id, CancellationToken cancellationToken) =>
+        await db.Connections.FindAsync([id], cancellationToken);
+
     public void Add(Connection connection) => db.Connections.Add(connection);
+}
+
+internal sealed class LinkRequestRepository(FinancesDbContext db) : ILinkRequestRepository
+{
+    public async Task<LinkRequest?> GetAsync(Guid id, CancellationToken cancellationToken) =>
+        await db.LinkRequests.FindAsync([id], cancellationToken);
+
+    public void Add(LinkRequest request) => db.LinkRequests.Add(request);
+
+    public void Remove(LinkRequest request) => db.LinkRequests.Remove(request);
 }
 
 internal sealed class AccountRepository(FinancesDbContext db) : IAccountRepository

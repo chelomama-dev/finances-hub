@@ -11,9 +11,10 @@ public interface IBankingProvider
 {
     /// <summary>
     /// Starts linking a bank, asking for the longest consent the bank allows. The owner opens the returned URL,
-    /// logs in to the bank, and is sent back to <paramref name="redirectUrl"/> with a code.
+    /// logs in to the bank, and is sent back to the app's configured callback with a code and
+    /// <paramref name="state"/>.
     /// </summary>
-    Task<BankAuthorization> StartAuthorizationAsync(Bank bank, Uri redirectUrl, string state, CancellationToken cancellationToken);
+    Task<BankAuthorization> StartAuthorizationAsync(Bank bank, string state, CancellationToken cancellationToken);
 
     /// <summary>Exchanges the code from the redirect for a session with the accounts the owner shared.</summary>
     Task<BankSession> CreateSessionAsync(string code, CancellationToken cancellationToken);

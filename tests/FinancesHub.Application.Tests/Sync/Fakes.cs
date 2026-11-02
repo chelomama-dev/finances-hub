@@ -9,8 +9,10 @@ using FinancesHub.Domain.Transactions;
 namespace FinancesHub.Application.Tests.Sync;
 
 // In-memory stand-ins for the database: transactions are committed only when the unit of work finishes
-internal sealed class FakeStore : IConnectionRepository, IAccountRepository, ITransactionRepository, IUnitOfWork
+internal sealed class FakeStore : IConnectionRepository, IAccountRepository, ITransactionRepository, ILinkRequestRepository, IUnitOfWork
 {
+    public List<LinkRequest> LinkRequests { get; } = [];
+
     public List<Connection> Connections { get; } = [];
     public List<Account> Accounts { get; } = [];
     public List<Transaction> Transactions { get; } = [];
@@ -19,7 +21,17 @@ internal sealed class FakeStore : IConnectionRepository, IAccountRepository, ITr
     public Task<IReadOnlyList<Connection>> ListAsync(CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<Connection>>(Connections.ToList());
 
+    public Task<Connection?> GetAsync(Guid id, CancellationToken cancellationToken) =>
+        Task.FromResult(Connections.SingleOrDefault(c => c.Id == id));
+
     public void Add(Connection connection) => Connections.Add(connection);
+
+    Task<LinkRequest?> ILinkRequestRepository.GetAsync(Guid id, CancellationToken cancellationToken) =>
+        Task.FromResult(LinkRequests.SingleOrDefault(r => r.Id == id));
+
+    public void Add(LinkRequest request) => LinkRequests.Add(request);
+
+    public void Remove(LinkRequest request) => LinkRequests.Remove(request);
 
     public Task<IReadOnlyList<Account>> ListByConnectionAsync(Guid connectionId, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<Account>>(Accounts.Where(a => a.ConnectionId == connectionId).ToList());
@@ -55,11 +67,17 @@ internal sealed class FakeBanking : IBankingProvider
     public List<(string Account, DateOnly? From)> TransactionRequests { get; } = [];
     public int Calls { get; private set; }
 
-    public Task<BankAuthorization> StartAuthorizationAsync(Bank bank, Uri redirectUrl, string state, CancellationToken cancellationToken) =>
-        throw new NotSupportedException();
+    public List<(Bank Bank, string State)> Authorizations { get; } = [];
+    public BankSession? NextSession { get; set; }
+
+    public Task<BankAuthorization> StartAuthorizationAsync(Bank bank, string state, CancellationToken cancellationToken)
+    {
+        Authorizations.Add((bank, state));
+        return Task.FromResult(new BankAuthorization(new Uri($"https://bank.example/login?state={state}"), DateTimeOffset.MaxValue));
+    }
 
     public Task<BankSession> CreateSessionAsync(string code, CancellationToken cancellationToken) =>
-        throw new NotSupportedException();
+        Task.FromResult(NextSession ?? throw new InvalidOperationException("No session prepared."));
 
     public Task<bool> IsSessionAuthorizedAsync(string sessionId, CancellationToken cancellationToken)
     {

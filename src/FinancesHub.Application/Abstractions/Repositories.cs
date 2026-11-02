@@ -8,7 +8,18 @@ public interface IConnectionRepository
 {
     Task<IReadOnlyList<Connection>> ListAsync(CancellationToken cancellationToken);
 
+    Task<Connection?> GetAsync(Guid id, CancellationToken cancellationToken);
+
     void Add(Connection connection);
+}
+
+public interface ILinkRequestRepository
+{
+    Task<LinkRequest?> GetAsync(Guid id, CancellationToken cancellationToken);
+
+    void Add(LinkRequest request);
+
+    void Remove(LinkRequest request);
 }
 
 public interface IAccountRepository
