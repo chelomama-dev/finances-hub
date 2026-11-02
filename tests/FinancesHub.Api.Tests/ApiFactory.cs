@@ -26,6 +26,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("ConnectionStrings:financesdb", _sql.GetConnectionString());
         builder.UseSetting("EnableBanking:ApplicationId", "test");
         builder.UseSetting("EnableBanking:PrivateKey", _key.ExportPkcs8PrivateKeyPem());
+        // The app's deep link, not the development page that appsettings.Development.json points to
+        builder.UseSetting("AppLink:ResultUrl", "financeshub://connections/result");
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<IBankingProvider>();

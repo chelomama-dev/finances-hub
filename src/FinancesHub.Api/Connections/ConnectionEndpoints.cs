@@ -5,6 +5,7 @@ using FinancesHub.Application.Connections;
 using FinancesHub.Domain.Banks;
 using FinancesHub.Domain.Connections;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
 
@@ -14,6 +15,7 @@ namespace FinancesHub.Api.Connections;
 public static partial class ConnectionEndpoints
 {
     public const string CallbackPath = "/api/connections/callback";
+    public const string DevResultPath = "/dev/link-result";
 
     public static IEndpointRouteBuilder MapConnections(this IEndpointRouteBuilder app)
     {
@@ -25,6 +27,15 @@ public static partial class ConnectionEndpoints
 
         // The bank's browser redirect: no app token can come with it; the one-use state is what protects it
         app.MapGet(CallbackPath, CallbackAsync).WithTags("Connections").ExcludeFromDescription();
+
+        // Where the browser lands in development instead of the app's deep link, which a desktop browser can't open
+        if (app.ServiceProvider.GetRequiredService<IHostEnvironment>().IsDevelopment())
+        {
+            app.MapGet(DevResultPath, (string? status, string? synced, string? reason) => TypedResults.Text(
+                status == "success"
+                    ? $"Banco vinculado. Datos cargados: {(synced == "true" ? "sí" : "no, se reintentará en el próximo sync")}."
+                    : $"No se ha podido vincular el banco ({reason}). Mira los logs de la API.")).ExcludeFromDescription();
+        }
 
         return app;
     }
@@ -61,12 +72,12 @@ public static partial class ConnectionEndpoints
             : TypedResults.NotFound();
 
     private static async Task<RedirectHttpResult> CallbackAsync(
-        string? state, string? code, string? error,
+        string? state, string? code, string? error, [FromQuery(Name = "error_description")] string? errorDescription,
         LinkBank linkBank, IOptions<AppLinkOptions> appLink, ILogger<LinkBank> logger, CancellationToken cancellationToken)
     {
         if (error is not null)
         {
-            LogBankError(logger, error);
+            await linkBank.FailAsync(state, error, errorDescription, cancellationToken);
             return Result(appLink.Value, "error", ("reason", ToReason(error)));
         }
 
@@ -107,9 +118,6 @@ public static partial class ConnectionEndpoints
         ConnectionStatus.Expiring => "expiring",
         _ => "expired"
     };
-
-    [LoggerMessage(Level = LogLevel.Warning, Message = "The bank returned an error to the link callback: {Error}")]
-    private static partial void LogBankError(ILogger logger, string error);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Completing a bank link failed")]
     private static partial void LogLinkFailed(ILogger logger, Exception exception);

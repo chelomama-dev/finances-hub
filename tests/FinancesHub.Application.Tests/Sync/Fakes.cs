@@ -33,6 +33,12 @@ internal sealed class FakeStore : IConnectionRepository, IAccountRepository, ITr
 
     public void Remove(LinkRequest request) => LinkRequests.Remove(request);
 
+    public Task RemoveCreatedBeforeAsync(DateTimeOffset createdBefore, CancellationToken cancellationToken)
+    {
+        LinkRequests.RemoveAll(r => r.CreatedAt < createdBefore);
+        return Task.CompletedTask;
+    }
+
     public Task<IReadOnlyList<Account>> ListByConnectionAsync(Guid connectionId, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<Account>>(Accounts.Where(a => a.ConnectionId == connectionId).ToList());
 

@@ -131,6 +131,27 @@ public sealed class LinkBankTests
         Assert.Single(_store.Accounts);
     }
 
+    [Fact]
+    public async Task A_bank_error_uses_up_the_state()
+    {
+        var state = await StartAsync(Bank.TradeRepublic);
+
+        await CreateLinkBank().FailAsync(state, "invalid_request", "details", CancellationToken.None);
+
+        Assert.Empty(_store.LinkRequests);
+    }
+
+    [Fact]
+    public async Task Starting_a_link_clears_the_abandoned_ones()
+    {
+        await StartAsync(Bank.TradeRepublic);
+        _time.Now = Now.AddHours(1);
+
+        await CreateLinkBank().StartAsync(Bank.CajaRuralDeNavarra, CancellationToken.None);
+
+        Assert.Equal(Bank.CajaRuralDeNavarra.Code, Assert.Single(_store.LinkRequests).BankCode);
+    }
+
     private async Task<string> StartAsync(Bank bank)
     {
         await CreateLinkBank().StartAsync(bank, CancellationToken.None);

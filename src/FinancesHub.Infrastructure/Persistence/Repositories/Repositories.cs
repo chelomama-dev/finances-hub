@@ -25,6 +25,9 @@ internal sealed class LinkRequestRepository(FinancesDbContext db) : ILinkRequest
     public void Add(LinkRequest request) => db.LinkRequests.Add(request);
 
     public void Remove(LinkRequest request) => db.LinkRequests.Remove(request);
+
+    public Task RemoveCreatedBeforeAsync(DateTimeOffset createdBefore, CancellationToken cancellationToken) =>
+        db.LinkRequests.Where(r => r.CreatedAt < createdBefore).ExecuteDeleteAsync(cancellationToken);
 }
 
 internal sealed class AccountRepository(FinancesDbContext db) : IAccountRepository

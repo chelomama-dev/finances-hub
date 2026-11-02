@@ -37,6 +37,9 @@ public sealed partial class LinkBank(
 
     private async Task<Uri> StartAsync(LinkRequest request, CancellationToken cancellationToken)
     {
+        // Links the owner started and abandoned would otherwise pile up
+        await linkRequests.RemoveCreatedBeforeAsync(request.CreatedAt - LinkRequest.ValidFor, cancellationToken);
+
         var authorization = await banking.StartAuthorizationAsync(request.Bank, request.Id.ToString(), cancellationToken);
 
         linkRequests.Add(request);
@@ -52,16 +55,11 @@ public sealed partial class LinkBank(
     public async Task<LinkResult> CompleteAsync(string? state, string? code, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
-        if (!Guid.TryParse(state, out var requestId)
-            || await linkRequests.GetAsync(requestId, cancellationToken) is not { } request)
+        if (await TakeRequestAsync(state, cancellationToken) is not { } request)
         {
             LogUnknownState();
             return LinkResult.Failed;
         }
-
-        // Used once, whatever happens next
-        linkRequests.Remove(request);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         if (request.IsExpiredAt(now) || string.IsNullOrWhiteSpace(code))
         {
@@ -91,6 +89,25 @@ public sealed partial class LinkBank(
         return result.FailedAccounts == 0 ? LinkResult.Success : LinkResult.LinkedButNotSynced;
     }
 
+    /// <summary>The bank sent the browser back with an error instead of a code.</summary>
+    public async Task FailAsync(string? state, string error, string? description, CancellationToken cancellationToken)
+    {
+        var request = await TakeRequestAsync(state, cancellationToken);
+        LogBankError(request?.Bank.Name ?? "an unknown bank", error, description);
+    }
+
+    // A request is used once, whatever happens next
+    private async Task<LinkRequest?> TakeRequestAsync(string? state, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(state, out var requestId)
+            || await linkRequests.GetAsync(requestId, cancellationToken) is not { } request)
+            return null;
+
+        linkRequests.Remove(request);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return request;
+    }
+
     private async Task SaveAccountsAsync(Connection connection, IReadOnlyList<BankAccount> shared, CancellationToken cancellationToken)
     {
         var allowed = options.Value.AllowedIbanSet;
@@ -112,6 +129,9 @@ public sealed partial class LinkBank(
                 accounts.Add(Account.Create(connection.Id, account.ProviderAccountId, account.Iban, account.Name, account.Currency));
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Linking {Bank} failed at the bank: {Error} ({Description})")]
+    private partial void LogBankError(string bank, string error, string? description);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Bank callback with an unknown state: ignored")]
     private partial void LogUnknownState();
