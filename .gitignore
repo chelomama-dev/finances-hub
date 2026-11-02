@@ -506,3 +506,5 @@ venv/
 *.pem
 *.key
 secrets.json
+# Raw responses from the Enable Banking spike: real bank data
+.spike/
