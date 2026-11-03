@@ -1,15 +1,17 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../auth/auth_providers.dart';
+import '../auth/authenticator.dart';
 import '../config.dart';
 import 'api_exception.dart';
 
-/// Gives the access token for the API, or `null` when there is none. Local development has no auth; Microsoft
-/// Entra ID will plug in here.
+/// Gives the access token for the API, or `null` when there is none.
 abstract interface class TokenProvider {
   Future<String?> getToken();
 }
 
+/// The local API and demo mode have no auth.
 class NoTokenProvider implements TokenProvider {
   const NoTokenProvider();
 
@@ -17,7 +19,30 @@ class NoTokenProvider implements TokenProvider {
   Future<String?> getToken() async => null;
 }
 
-final tokenProvider = Provider<TokenProvider>((ref) => const NoTokenProvider());
+/// Microsoft Entra ID's token for the API. When there is none, [onSignedOut] sends the app back to the sign-in
+/// screen.
+class AuthenticatorTokenProvider implements TokenProvider {
+  const AuthenticatorTokenProvider(this._authenticator, {required this.onSignedOut});
+
+  final Authenticator _authenticator;
+  final void Function() onSignedOut;
+
+  @override
+  Future<String?> getToken() async {
+    final token = await _authenticator.tokenSilently();
+    if (token == null) onSignedOut();
+    return token;
+  }
+}
+
+final tokenProvider = Provider<TokenProvider>((ref) {
+  final authenticator = ref.watch(authenticatorProvider);
+  if (authenticator == null) return const NoTokenProvider();
+  return AuthenticatorTokenProvider(
+    authenticator,
+    onSignedOut: () => ref.read(authProvider.notifier).sessionExpired(),
+  );
+});
 
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
@@ -34,9 +59,14 @@ final dioProvider = Provider<Dio>((ref) {
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = await tokens.getToken();
-        if (token != null) options.headers['Authorization'] = 'Bearer $token';
-        handler.next(options);
+        try {
+          final token = await tokens.getToken();
+          if (token != null) options.headers['Authorization'] = 'Bearer $token';
+          handler.next(options);
+        } catch (e) {
+          // Refreshing the token failed (usually no network): the request fails like any request that can't connect
+          handler.reject(DioException(requestOptions: options, error: e));
+        }
       },
     ),
   );

@@ -41,6 +41,7 @@ dependencies:
   decimal: ^3.2.6
   flutter_localizations:
     sdk: flutter
+  msal_auth: ^3.5.3
 
 dev_dependencies:
   flutter_test:
@@ -60,6 +61,10 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    # MSAL's Android configuration; the client ID and redirect URI are added in code (core/auth/authenticator.dart)
+    - assets/msal_config.json
 
   # To add assets to your application, add an assets section, like this:
   # assets:

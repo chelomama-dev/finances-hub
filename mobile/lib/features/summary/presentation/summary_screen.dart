@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/auth/auth_providers.dart';
 import '../../../core/dates.dart';
 import '../../../core/widgets/states.dart';
 import '../data/summary.dart';
@@ -14,6 +15,7 @@ class SummaryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final summary = ref.watch(summaryProvider);
+    final hasAuth = ref.watch(authenticatorProvider) != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -24,6 +26,12 @@ class SummaryScreen extends ConsumerWidget {
             icon: const Icon(Icons.account_balance_outlined),
             onPressed: () => context.push('/connections'),
           ),
+          if (hasAuth)
+            IconButton(
+              tooltip: 'Cerrar sesión',
+              icon: const Icon(Icons.logout),
+              onPressed: () => _confirmSignOut(context, ref),
+            ),
         ],
       ),
       body: RefreshIndicator(
@@ -45,6 +53,21 @@ class SummaryScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('¿Cerrar sesión?'),
+      content: const Text('Tendrás que volver a iniciar sesión con tu cuenta de Microsoft.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Cerrar sesión')),
+      ],
+    ),
+  );
+  if (confirmed ?? false) await ref.read(authProvider.notifier).signOut();
 }
 
 class _SummaryList extends StatelessWidget {

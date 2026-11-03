@@ -82,6 +82,7 @@ mobile/
       theme.dart
     core/
       config.dart              API base URL and demo flag (from --dart-define)
+      auth/                    MSAL behind an Authenticator interface, and the signed in / out status
       api/
         api_client.dart        dio instance: base URL, timeouts, auth header, ProblemDetails -> ApiException
         api_exception.dart
@@ -94,6 +95,7 @@ mobile/
       accounts/                a bank's accounts with their balances
       transactions/            an account's transactions, filters, infinite scroll
       connections/             linked banks, consent status, link and reconnect
+      sign_in/                 the Microsoft sign-in screen
   test/                        mirrors lib/
 ```
 
@@ -104,6 +106,9 @@ repositories.
 ### Screens
 
 All texts in Spanish. Every screen has loading, empty and error (with "Reintentar") states, and pull to refresh.
+
+0. **Iniciar sesión** (`/sign-in`): only when the build has Entra ID config. Every route goes here until the owner
+   is signed in; "Cerrar sesión" is in Inicio's app bar.
 
 1. **Inicio** (`/`): `GET /api/summary`. Total balance large at the top, a card per bank with its balance, and
    "Actualizado hace X" from `lastSyncedAt`. If a connection is `expiring` or `expired`, a banner that goes to
@@ -129,10 +134,14 @@ All texts in Spanish. Every screen has loading, empty and error (with "Reintenta
     [docs/api.md](docs/api.md). This lets the app run before the backend has each endpoint, and in demos.
 - Android blocks plain HTTP by default: allow it **only in debug** (a debug-only network security config for
   `10.0.2.2` and `localhost`), never in release.
-- Auth: in local development the API has no auth. Later it will use Microsoft Entra ID; leave a single place in
-  `api_client.dart` that adds `Authorization: Bearer <token>` from a `TokenProvider` that returns `null` for now.
-  The MSAL integration is decided when we get there.
-- Tests: unit tests for `money.dart`, the DTO parsing (with the JSON from docs/api.md) and the repositories; widget
-  tests for the states (loading, empty, error, data) of each screen.
+- Auth: the local API has no auth. Against Azure the app signs in with Microsoft Entra ID through **msal_auth**
+  ([ADR 0002](docs/adr/0002-the-app-signs-in-with-msal-through-the-browser.md)): `core/auth/` has the
+  `Authenticator` and the auth status, and `api_client.dart` is the single place that adds
+  `Authorization: Bearer <token>`. The Entra ID values come from `--dart-define-from-file=config/azure.json`, which
+  `infra/scripts/bootstrap-entra-app.sh` writes and git ignores; without them there is no login.
+- Tests: unit tests for `money.dart`, the DTO parsing (with the JSON from docs/api.md), the repositories and the
+  auth status (with a fake `Authenticator`); widget tests for the states (loading, empty, error, data) of each
+  screen.
 - Commands, from `mobile/`: `flutter pub get`, `dart run build_runner build --delete-conflicting-outputs`,
-  `flutter analyze`, `flutter test`, `flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5080`.
+  `flutter analyze`, `flutter test`, `flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5080`, and against Azure
+  `flutter run --dart-define-from-file=config/azure.json`.
