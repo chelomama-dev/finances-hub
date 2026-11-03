@@ -1,0 +1,19 @@
+{
+  "authorities": [
+    {
+      "type": "AAD",
+      "audience": { "type": "AzureADMultipleOrgs" },
+      "default": true
+    }
+  ],
+  "authorization_user_agent": "BROWSER",
+  "broker_redirect_uri_registered": false,
+  "account_mode": "SINGLE",
+  "shared_device_mode_supported": false,
+  "multiple_clouds_supported": false,
+  "logging": {
+    "pii_enabled": false,
+    "log_level": "WARNING",
+    "logcat_enabled": false
+  }
+}

@@ -22,6 +22,24 @@ flutter run --dart-define=API_BASE_URL=http://localhost:5080
 
 Plain HTTP is allowed only in debug builds, and only to `10.0.2.2` and `localhost`.
 
+### Against the API in Azure
+
+The API in Azure needs a Microsoft sign-in. Once, from the repo root, with `az` logged in as a tenant admin:
+
+```bash
+infra/scripts/bootstrap-entra-app.sh   # the app's registration in Entra ID, and config/azure.json
+```
+
+Then, from `mobile/`:
+
+```bash
+flutter run --dart-define-from-file=config/azure.json
+```
+
+`config/azure.json` has the tenant, the client IDs and the signature hashes of the keys that sign the app
+([config/azure.example.json](config/azure.example.json) shows its shape). Git ignores it. If the signing key changes
+(a new machine, the release key), run the script again: Entra ID only sends the login back to a registered key.
+
 ## Check it
 
 ```bash

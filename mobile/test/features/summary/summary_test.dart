@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:decimal/decimal.dart';
 import 'package:finances_hub/core/api/api_exception.dart';
+import 'package:finances_hub/core/auth/auth_providers.dart';
 import 'package:finances_hub/core/connection_status.dart';
 import 'package:finances_hub/core/money.dart';
 import 'package:finances_hub/features/summary/data/summary.dart';
@@ -10,6 +11,7 @@ import 'package:finances_hub/features/summary/data/summary_repository.dart';
 import 'package:finances_hub/features/summary/presentation/summary_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../core/auth/fake_authenticator.dart';
 import '../../helpers.dart';
 
 // The example of docs/api.md → "Get the summary"
@@ -127,6 +129,30 @@ void main() {
 
       expect(calls, 1);
       expect(find.text('12.873,45 €'), findsOneWidget);
+    });
+
+    testWidgets('without auth there is no sign-out button', (tester) async {
+      await pumpScreen(tester, const SummaryScreen(),
+          overrides: [summaryRepositoryProvider.overrideWithValue(FakeSummaryRepository(() async => Summary.fromJson(example)))]);
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Cerrar sesión'), findsNothing);
+    });
+
+    testWidgets('signs out after confirming', (tester) async {
+      final authenticator = FakeAuthenticator(token: 'abc');
+      await pumpScreen(tester, const SummaryScreen(), overrides: [
+        summaryRepositoryProvider.overrideWithValue(FakeSummaryRepository(() async => Summary.fromJson(example))),
+        authenticatorProvider.overrideWithValue(authenticator),
+      ]);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Cerrar sesión'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Cerrar sesión'));
+      await tester.pumpAndSettle();
+
+      expect(authenticator.signOutCalls, 1);
     });
   });
 }

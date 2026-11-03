@@ -68,7 +68,16 @@ pipeline.
 5. **Turn the apps on**: `gh variable set APPS_ENABLED --env production --body true`, then run the workflow on
    `main` again. The smoke test checks that the API answers and rejects a request without a token.
 
-6. **Register the bank callback** in Enable Banking (see [Enable Banking](#enable-banking)) and link the banks.
+6. **Register the bank callback** in Enable Banking (see [Enable Banking](#enable-banking)).
+
+7. **The Android app's registration** (a public client with the API's scope) and the app's
+   `mobile/config/azure.json`. Needs `az` logged in as a tenant admin and the Android SDK's debug key:
+
+   ```bash
+   infra/scripts/bootstrap-entra-app.sh
+   ```
+
+   Then sign in from the app and link the banks.
 
 ## Continuous deployment
 
@@ -91,6 +100,12 @@ bundle, makes sure the apps' identities and the readers group have their databas
 | App registration *Finances Hub API*: `api://<client id>`, scope `access_as_user`, v2 tokens | The audience and scope the API validates |
 | Assignment required, only you assigned | Entra ID gives tokens for the API to nobody else; the API's owner check is the second lock |
 | Variables `AUTH_API_CLIENT_ID`, `AUTH_OWNER_OBJECT_ID`, `ENABLE_BANKING_APPLICATION_ID` | Read by `main.bicepparam`; kept out of the public repo |
+
+| Created by `bootstrap-entra-app.sh` | Why |
+|---|---|
+| App registration *Finances Hub Android*: public client, single tenant, redirect URIs `msauth://dev.chelomama.financeshub/<signature hash>` | The app signs in through the browser and has no secret ([ADR 0002](../docs/adr/0002-the-app-signs-in-with-msal-through-the-browser.md)) |
+| Delegated permission `access_as_user`, consented for the tenant | The login asks for the API's token without a consent screen |
+| `mobile/config/azure.json` (local, ignored by git) | The `--dart-define` values that point the app at the API in Azure |
 
 ## Access for people
 

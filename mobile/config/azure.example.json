@@ -1,0 +1,8 @@
+{
+  "API_BASE_URL": "https://<the API's host>",
+  "AUTH_TENANT_ID": "<directory (tenant) ID>",
+  "AUTH_CLIENT_ID": "<client ID of the Finances Hub Android app registration>",
+  "AUTH_API_SCOPE": "api://<client ID of the Finances Hub API app registration>/access_as_user",
+  "AUTH_DEBUG_SIGNATURE_HASH": "<base64 signature hash of the debug key>",
+  "AUTH_RELEASE_SIGNATURE_HASH": "<base64 signature hash of the key that signs release builds>"
+}

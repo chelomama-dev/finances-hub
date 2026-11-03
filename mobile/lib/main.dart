@@ -9,7 +9,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es_ES');
 
-  const config = AppConfig.fromEnvironment;
+  final config = AppConfig.fromEnvironment;
   if (!config.isValid) {
     runApp(const _MissingConfigApp());
     return;
@@ -29,7 +29,8 @@ class _MissingConfigApp extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.all(32),
           child: Text(
-            'Falta la URL de la API. Arranca la app con --dart-define=API_BASE_URL=... '
+            'Falta configuración. Arranca la app con --dart-define=API_BASE_URL=..., '
+            'con --dart-define-from-file=config/azure.json para la API en Azure '
             'o con --dart-define=DEMO=true para usar datos de ejemplo.',
             textAlign: TextAlign.center,
           ),
