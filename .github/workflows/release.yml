@@ -1,0 +1,106 @@
+name: Release
+
+# A tag vX.Y.Z on main publishes a GitHub release with the demo APK, signed with the release key. The tag must match
+# the version in mobile/pubspec.yaml, so the version code always grows. The public APK is the demo build: the one that
+# talks to the API in Azure is built on the owner's machine (docs/adr/0003)
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # The release key lives in this environment's secrets, and only tags v* may use it
+    environment: release
+    permissions:
+      contents: write # creates the release
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # A tag can point anywhere; only code that reached main through a pull request is released
+      - name: Check the tag
+        run: |
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
+            || { echo "::error::$GITHUB_REF_NAME is not on main"; exit 1; }
+          version=$(sed -n 's/^version: *//p' pubspec.yaml)
+          [[ "v${version%%+*}" == "$GITHUB_REF_NAME" ]] \
+            || { echo "::error::$GITHUB_REF_NAME doesn't match pubspec.yaml's version ($version)"; exit 1; }
+          echo "VERSION=${version%%+*}" >> "$GITHUB_ENV"
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.9
+          cache: true
+
+      - name: Install
+        run: flutter pub get --enforce-lockfile
+
+      - name: Generate code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Test
+        run: flutter test
+
+      # The keystore only exists in the runner's temp folder, which is wiped after the job
+      - name: Release key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          [[ -n "$KEYSTORE_BASE64" && -n "$KEYSTORE_PASSWORD" ]] \
+            || { echo "::error::No release key: run infra/scripts/bootstrap-release-key.sh"; exit 1; }
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          cat > android/key.properties <<EOF
+          storeFile=$RUNNER_TEMP/release.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=release
+          keyPassword=$KEYSTORE_PASSWORD
+          EOF
+
+      - name: Build APK
+        run: flutter build apk --release --dart-define=DEMO=true
+
+      # Gradle falls back to the debug key without key.properties: make sure the APK carries the release key
+      - name: Check the signature
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          expected=$(keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" \
+            -alias release | sha256sum | cut -d' ' -f1)
+          apksigner=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner
+          actual=$("$apksigner" verify --print-certs build/app/outputs/flutter-apk/app-release.apk \
+            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          [[ -n "$expected" && "$expected" == "$actual" ]] \
+            || { echo "::error::The APK isn't signed with the release key"; exit 1; }
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apk="finances-hub-demo-$VERSION.apk"
+          mv build/app/outputs/flutter-apk/app-release.apk "$apk"
+          sha256sum "$apk" > "$apk.sha256"
+          notes="The demo build: made-up data, no account and no API needed. Check the APK with"
+          notes+=" \`sha256sum -c $apk.sha256\`, then install it on an Android phone (allow unknown sources)."
+          gh release create "$GITHUB_REF_NAME" "$apk" "$apk.sha256" --title "Finances Hub $VERSION" \
+            --notes "$notes" --generate-notes

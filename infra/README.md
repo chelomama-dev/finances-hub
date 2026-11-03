@@ -107,6 +107,11 @@ bundle, makes sure the apps' identities and the readers group have their databas
 | Delegated permission `access_as_user`, consented for the tenant | The login asks for the API's token without a consent screen |
 | `mobile/config/azure.json` (local, ignored by git) | The `--dart-define` values that point the app at the API in Azure |
 
+| Created by `bootstrap-release-key.sh` | Why |
+|---|---|
+| Keystore `~/.android/financeshub-release.jks` and `mobile/android/key.properties` (local, ignored by git) | The key that signs release builds; Android only updates an app signed with the same key ([ADR 0003](../docs/adr/0003-public-releases-are-demo-builds.md)) |
+| Environment `release` (tags `v*` only) + secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD` | The Release workflow signs the APK; branches and pull requests never see the key |
+
 ## Access for people
 
 You are a reader day to day: you can query the data but not change it. Being a SQL admin is something you switch on

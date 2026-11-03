@@ -1,4 +1,5 @@
 import java.util.Base64
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -17,6 +18,13 @@ val dartDefines: Map<String, String> = (project.findProperty("dart-defines") as 
 
 // Without auth (local API, demo, CI) any value will do: the login is never opened
 fun msalSignatureHash(key: String) = dartDefines[key]?.takeIf { it.isNotBlank() } ?: "none"
+
+// The release key, from android/key.properties (ignored by git). infra/scripts/bootstrap-release-key.sh writes it on
+// the owner's machine and the Release workflow writes it from its secrets
+val keyProperties = Properties().apply {
+    val file = rootProject.file("key.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
 
 android {
     namespace = "dev.chelomama.finances_hub"
@@ -46,11 +54,22 @@ android {
         manifestPlaceholders["msalSignatureHash"] = msalSignatureHash("AUTH_DEBUG_SIGNATURE_HASH")
     }
 
+    signingConfigs {
+        if (!keyProperties.isEmpty) {
+            create("release") {
+                storeFile = file(keyProperties.getProperty("storeFile"))
+                storePassword = keyProperties.getProperty("storePassword")
+                keyAlias = keyProperties.getProperty("keyAlias")
+                keyPassword = keyProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Without key.properties (CI's pull requests, a new machine) release builds fall back to the debug key, so
+            // `flutter run --release` still works. The Release workflow checks the APK's certificate before publishing
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
             manifestPlaceholders["msalSignatureHash"] = msalSignatureHash("AUTH_RELEASE_SIGNATURE_HASH")
         }
     }
