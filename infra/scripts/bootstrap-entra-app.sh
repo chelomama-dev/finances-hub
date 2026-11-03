@@ -35,8 +35,14 @@ signature_hash() { # keystore alias storepass
 
 echo "==> Signature hashes"
 DEBUG_HASH=$(signature_hash "$HOME/.android/debug.keystore" androiddebugkey android)
-# Release builds are signed with the debug key until the app has a release key of its own
-RELEASE_HASH=$DEBUG_HASH
+# The release key, if bootstrap-release-key.sh has made one; without it release builds are signed with the debug key
+KEY_PROPERTIES="$REPO_ROOT/mobile/android/key.properties"
+if [[ -f "$KEY_PROPERTIES" ]]; then
+  key_property() { sed -n "s/^$1=//p" "$KEY_PROPERTIES"; }
+  RELEASE_HASH=$(signature_hash "$(key_property storeFile)" "$(key_property keyAlias)" "$(key_property storePassword)")
+else
+  RELEASE_HASH=$DEBUG_HASH
+fi
 echo "debug:   $DEBUG_HASH"
 echo "release: $RELEASE_HASH"
 
