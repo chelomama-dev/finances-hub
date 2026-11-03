@@ -100,7 +100,8 @@ jobs:
       - name: Test
         run: flutter test
 
-      # Catches Android build problems (Gradle, manifest, resources) on every PR. The release APK comes later
+      # Catches Android build problems (Gradle, manifest, resources) on every PR. Tags build the release APK
+      # (release.yml)
       - name: Build debug APK
         run: flutter build apk --debug --dart-define=DEMO=true
 

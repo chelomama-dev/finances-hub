@@ -4,7 +4,8 @@ A personal, **read-only** finance monitor for Android. It brings together my two
 and **Trade Republic** — so I can see in one place how much money I have and what moves in each account.
 
 Built as a portfolio project with **.NET 10, Aspire, Flutter, Azure SQL and Azure Container Apps**. It's for my own
-use: the app is installed as an APK on my phone and isn't published on any store.
+use: the app is installed as an APK on my phone and isn't published on any store. To try it, the
+[latest release](https://github.com/chelomama-dev/finances-hub/releases/latest) has the demo build, with made-up data.
 
 > **Status: in development.** The solution is scaffolded; the features below are being built.
 
@@ -103,7 +104,7 @@ and points to the local API.
 | Auth | Microsoft Entra ID (MSAL in the app, JWT bearer in the API) |
 | Hosting | Azure Container Apps (API) and Container Apps Jobs (sync), scale to zero |
 | Secrets | Azure Key Vault, managed identities |
-| IaC / CI/CD | Bicep, GitHub Actions, GHCR; the APK is built in CI and published as a release |
+| IaC / CI/CD | Bicep, GitHub Actions, GHCR; a signed demo APK is built in CI and published as a release |
 | Observability | OpenTelemetry, Application Insights |
 | Local dev | Aspire 13, Docker |
 

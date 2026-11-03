@@ -40,6 +40,32 @@ flutter run --dart-define-from-file=config/azure.json
 ([config/azure.example.json](config/azure.example.json) shows its shape). Git ignores it. If the signing key changes
 (a new machine, the release key), run the script again: Entra ID only sends the login back to a registered key.
 
+## Release it
+
+Release builds are signed with the app's release key ([ADR 0003](../docs/adr/0003-public-releases-are-demo-builds.md)).
+Once per machine, from the repo root, with `gh` logged in as an admin of the repo:
+
+```bash
+infra/scripts/bootstrap-release-key.sh   # the keystore in ~/.android, android/key.properties and the CI secrets
+infra/scripts/bootstrap-entra-app.sh     # registers the release key's signature hash in Entra ID
+```
+
+Back up `~/.android/financeshub-release.jks` and `android/key.properties`: without them the app can't be updated.
+
+**The public release** (the demo build): bump `version` in `pubspec.yaml` in a pull request, and once it is merged
+tag `main` with the same version. The Release workflow tests, builds, checks the signature and publishes the APK.
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+**Your own build** (against Azure), from `mobile/` with the phone connected over USB:
+
+```bash
+flutter build apk --release --dart-define-from-file=config/azure.json
+flutter install --release
+```
+
 ## Check it
 
 ```bash

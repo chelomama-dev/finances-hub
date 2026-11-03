@@ -139,6 +139,8 @@ All texts in Spanish. Every screen has loading, empty and error (with "Reintenta
   `Authenticator` and the auth status, and `api_client.dart` is the single place that adds
   `Authorization: Bearer <token>`. The Entra ID values come from `--dart-define-from-file=config/azure.json`, which
   `infra/scripts/bootstrap-entra-app.sh` writes and git ignores; without them there is no login.
+- Releases: a tag `vX.Y.Z` on `main` that matches `pubspec.yaml` publishes the **demo** APK, signed with the release
+  key ([ADR 0003](docs/adr/0003-public-releases-are-demo-builds.md)). The build against Azure is never published.
 - Tests: unit tests for `money.dart`, the DTO parsing (with the JSON from docs/api.md), the repositories and the
   auth status (with a fake `Authenticator`); widget tests for the states (loading, empty, error, data) of each
   screen.
