@@ -127,15 +127,33 @@ void main() {
   });
 
   group('router', () {
+    const signedIn = AsyncData(AuthStatus.signedIn);
+    const signedOut = AsyncData(AuthStatus.signedOut);
+
     test('everything goes to the sign-in screen until signed in', () {
-      expect(redirectFor(const AsyncLoading(), '/'), signInPath);
-      expect(redirectFor(const AsyncData(AuthStatus.signedOut), '/connections'), signInPath);
-      expect(redirectFor(const AsyncData(AuthStatus.signedOut), signInPath), isNull);
+      expect(redirectFor(const AsyncLoading(), Uri.parse('/')), signInPath);
+      expect(redirectFor(signedOut, Uri.parse(signInPath)), isNull);
     });
 
-    test('once signed in, the sign-in screen goes home', () {
-      expect(redirectFor(const AsyncData(AuthStatus.signedIn), signInPath), '/');
-      expect(redirectFor(const AsyncData(AuthStatus.signedIn), '/connections'), isNull);
+    test('a screen opened before signing in is kept and shown after', () {
+      final toSignIn = redirectFor(signedOut, Uri.parse('/connections/result'))!;
+
+      expect(toSignIn, '$signInPath?from=%2Fconnections%2Fresult');
+      expect(redirectFor(signedIn, Uri.parse(toSignIn)), '/connections/result');
+    });
+
+    test('once signed in, the sign-in screen goes home, and never outside the app', () {
+      expect(redirectFor(signedIn, Uri.parse(signInPath)), '/');
+      expect(redirectFor(signedIn, Uri.parse('$signInPath?from=//evil.test')), '/');
+      expect(redirectFor(signedIn, Uri.parse('/connections')), isNull);
+    });
+
+    test("the bank's deep link becomes the result route, and any other app link goes home", () {
+      final deepLink = Uri.parse('financeshub://connections/result?status=success&synced=true');
+
+      expect(isConnectionResult(deepLink), isTrue);
+      expect(redirectFor(signedIn, deepLink), connectionResultPath);
+      expect(redirectFor(signedIn, Uri.parse('financeshub://somewhere')), '/');
     });
   });
 }

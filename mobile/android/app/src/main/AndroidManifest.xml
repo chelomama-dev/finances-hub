@@ -24,9 +24,22 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <meta-data
+                android:name="flutter_deeplinking_enabled"
+                android:value="true" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- The API redirects the browser here after a bank login (docs/api.md → "Link a bank") -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="financeshub"
+                    android:host="connections"
+                    android:path="/result" />
             </intent-filter>
         </activity>
         <!-- The Microsoft login comes back here from the browser: msauth://<package>/<signature hash>. The hash

@@ -42,6 +42,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   msal_auth: ^3.5.3
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:

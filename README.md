@@ -145,7 +145,9 @@ aspire run
 
 The API brings the database up to date on startup, and the sync runs once and exits; restart it from the dashboard
 to sync again. To link a bank, `POST https://localhost:7017/api/connections` with `{ "bank": "caja-rural-navarra" }`
-(or `trade-republic`), open the `authorizationUrl` and log in to the bank. Tests need Docker too: the persistence tests run against SQL Server in a container.
+(or `trade-republic`), open the `authorizationUrl` and log in to the bank; the browser ends on a local results page
+instead of the app's `financeshub://` link. Against Azure, the app links and reconnects banks itself from Conexiones.
+Tests need Docker too: the persistence tests run against SQL Server in a container.
 
 ## Cost
 
