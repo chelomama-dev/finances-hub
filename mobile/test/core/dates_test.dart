@@ -14,11 +14,11 @@ void main() {
     expect(timeAgo(now.subtract(const Duration(days: 2)), now: now), 'hace 2 días');
   });
 
-  test('names the days of the list', () {
-    expect(dayHeader(DateTime(2026, 11, 2), now: now), 'Hoy');
-    expect(dayHeader(DateTime(2026, 11, 1), now: now), 'Ayer');
-    expect(dayHeader(DateTime(2026, 10, 30), now: now), 'viernes, 30 de octubre');
-    expect(dayHeader(DateTime(2025, 10, 30), now: now), contains('2025'));
+  test('dates a transaction row', () {
+    expect(rowDate(DateTime(2026, 11, 2), now: now), 'Hoy');
+    expect(rowDate(DateTime(2026, 11, 1), now: now), 'Ayer');
+    expect(rowDate(DateTime(2026, 10, 30), now: now), '30 oct');
+    expect(rowDate(DateTime(2025, 10, 30), now: now), '30 oct 2025');
   });
 
   test('formats query dates as the API expects', () => expect(apiDate(DateTime(2026, 1, 5)), '2026-01-05'));

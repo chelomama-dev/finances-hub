@@ -54,7 +54,7 @@ void main() {
     expect(adapter.requests.single.path, '/api/banks/caja-rural-navarra/accounts');
   });
 
-  testWidgets('shows each account and opens its transactions', (tester) async {
+  testWidgets('shows each account', (tester) async {
     await pumpScreen(tester, const BankScreen(bankId: 'caja-rural-navarra'),
         overrides: [accountsRepositoryProvider.overrideWithValue(FakeAccountsRepository((_) async => BankAccounts.fromJson(example)))]);
     await tester.pumpAndSettle();
@@ -62,11 +62,6 @@ void main() {
     expect(find.text('Caja Rural de Navarra'), findsOneWidget);
     expect(find.text('ES12 **** 4567'), findsOneWidget);
     expect(find.text('3.120,80 €'), findsOneWidget);
-
-    await tester.tap(find.text('Cuenta Corriente'));
-    await tester.pumpAndSettle();
-
-    expect(find.textContaining('route /accounts/3f2c8d71-5a0b-4e9f-8c16-b7d2e4a90f55/transactions?name=Cuenta'), findsOneWidget);
   });
 
   testWidgets('empty', (tester) async {

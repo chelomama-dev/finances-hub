@@ -18,13 +18,10 @@ internal sealed class FinanceQueries(FinancesDbContext db) : IFinanceQueries
         return await query.ToListAsync(cancellationToken);
     }
 
-    public Task<bool> AccountExistsAsync(Guid accountId, CancellationToken cancellationToken) =>
-        db.Accounts.AnyAsync(a => a.Id == accountId, cancellationToken);
-
     public async Task<IReadOnlyList<TransactionView>> ListTransactionsAsync(
-        Guid accountId, TransactionFilter filter, TransactionCursor? after, int limit, CancellationToken cancellationToken)
+        TransactionFilter filter, TransactionCursor? after, int limit, CancellationToken cancellationToken)
     {
-        var query = db.Transactions.AsNoTracking().Where(t => t.AccountId == accountId);
+        var query = db.Transactions.AsNoTracking();
 
         if (filter.From is { } from)
             query = query.Where(t => t.BookingDate >= from);
@@ -42,11 +39,14 @@ internal sealed class FinanceQueries(FinancesDbContext db) : IFinanceQueries
             query = query.Where(t => t.BookingDate < after.BookingDate
                                      || (t.BookingDate == after.BookingDate && t.Id.CompareTo(after.Id) > 0));
 
-        return await query
-            .OrderByDescending(t => t.BookingDate)
-            .ThenBy(t => t.Id)
-            .Take(limit + 1)
-            .Select(t => new TransactionView(t.Id, t.BookingDate, t.Amount, t.Description, t.Counterparty, t.Status))
-            .ToListAsync(cancellationToken);
+        var page =
+            from transaction in query
+            join account in db.Accounts on transaction.AccountId equals account.Id
+            join connection in db.Connections on account.ConnectionId equals connection.Id
+            orderby transaction.BookingDate descending, transaction.Id
+            select new TransactionView(transaction.Id, connection.BankCode, transaction.BookingDate, transaction.Amount,
+                transaction.Description, transaction.Counterparty, transaction.Status);
+
+        return await page.Take(limit + 1).ToListAsync(cancellationToken);
     }
 }

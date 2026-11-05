@@ -10,19 +10,18 @@ public interface IFinanceQueries
     /// <summary>Accounts of every linked bank, or only of <paramref name="bankCode"/>.</summary>
     Task<IReadOnlyList<AccountView>> ListAccountsAsync(string? bankCode, CancellationToken cancellationToken);
 
-    Task<bool> AccountExistsAsync(Guid accountId, CancellationToken cancellationToken);
-
     /// <summary>
-    /// Up to <paramref name="limit"/> transactions newest first, after <paramref name="after"/> if given, plus
-    /// one more to know whether there is a next page.
+    /// Up to <paramref name="limit"/> transactions of every account newest first, after <paramref name="after"/>
+    /// if given, plus one more to know whether there is a next page.
     /// </summary>
     Task<IReadOnlyList<TransactionView>> ListTransactionsAsync(
-        Guid accountId, TransactionFilter filter, TransactionCursor? after, int limit, CancellationToken cancellationToken);
+        TransactionFilter filter, TransactionCursor? after, int limit, CancellationToken cancellationToken);
 }
 
 public sealed record AccountView(Guid Id, string BankCode, string? Name, Iban? Iban, string Currency, Money? Balance, DateTimeOffset? LastSyncedAt);
 
-public sealed record TransactionView(Guid Id, DateOnly BookingDate, Money Amount, string? Description, string? Counterparty, TransactionStatus Status);
+public sealed record TransactionView(
+    Guid Id, string BankCode, DateOnly BookingDate, Money Amount, string? Description, string? Counterparty, TransactionStatus Status);
 
 /// <param name="From">Inclusive.</param>
 /// <param name="To">Inclusive.</param>

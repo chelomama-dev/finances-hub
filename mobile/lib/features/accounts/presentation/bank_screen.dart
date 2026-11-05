@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/states.dart';
 import 'accounts_providers.dart';
@@ -36,12 +35,6 @@ class BankScreen extends ConsumerWidget {
                               ? Text(account.maskedIban!)
                               : null,
                           trailing: Text(account.balance.format(), style: Theme.of(context).textTheme.titleMedium),
-                          onTap: () => context.push(
-                            Uri(
-                              path: '/accounts/${account.id}/transactions',
-                              queryParameters: {'name': account.displayName},
-                            ).toString(),
-                          ),
                         ),
                       ),
                   ],

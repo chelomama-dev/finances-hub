@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace FinancesHub.Api.Finances;
 
-// See docs/api.md → "Get the summary", "List a bank's accounts" and "List an account's transactions"
+// See docs/api.md → "Get the summary", "List a bank's accounts" and "List transactions"
 public static class FinanceEndpoints
 {
     public const int DefaultLimit = 50;
@@ -20,7 +20,7 @@ public static class FinanceEndpoints
 
         group.MapGet("/summary", GetSummaryAsync);
         group.MapGet("/banks/{bankId}/accounts", ListAccountsAsync);
-        group.MapGet("/accounts/{accountId:guid}/transactions", ListTransactionsAsync);
+        group.MapGet("/transactions", ListTransactionsAsync);
 
         return app;
     }
@@ -49,8 +49,8 @@ public static class FinanceEndpoints
                 MoneyResponse.From(a.Balance ?? Money.Zero(a.Currency)))).ToList()));
     }
 
-    private static async Task<Results<Ok<TransactionPageResponse>, ValidationProblem, NotFound>> ListTransactionsAsync(
-        Guid accountId, DateOnly? from, DateOnly? to, string? direction, int? limit, string? cursor,
+    private static async Task<Results<Ok<TransactionPageResponse>, ValidationProblem>> ListTransactionsAsync(
+        DateOnly? from, DateOnly? to, string? direction, int? limit, string? cursor,
         IFinanceQueries queries, TimeProvider timeProvider, CancellationToken cancellationToken)
     {
         var errors = new Dictionary<string, string[]>();
@@ -80,10 +80,7 @@ public static class FinanceEndpoints
         if (errors.Count > 0)
             return TypedResults.ValidationProblem(errors);
 
-        if (!await queries.AccountExistsAsync(accountId, cancellationToken))
-            return TypedResults.NotFound();
-
-        var rows = await queries.ListTransactionsAsync(accountId, new TransactionFilter(from, to, parsedDirection), after, pageSize, cancellationToken);
+        var rows = await queries.ListTransactionsAsync(new TransactionFilter(from, to, parsedDirection), after, pageSize, cancellationToken);
 
         // One row more than asked tells there is a next page; it is not returned
         var page = rows.Take(pageSize).ToList();
@@ -91,9 +88,13 @@ public static class FinanceEndpoints
 
         return TypedResults.Ok(new TransactionPageResponse(
             page.Select(t => new TransactionResponse(t.Id, t.BookingDate, MoneyResponse.From(t.Amount), t.Description, t.Counterparty,
-                t.Status == TransactionStatus.Pending ? "pending" : "booked")).ToList(),
+                t.Status == TransactionStatus.Pending ? "pending" : "booked", ToBank(t.BankCode))).ToList(),
             nextCursor));
     }
+
+    // Every stored account belongs to a known bank; the code alone is the fallback name if one is ever dropped
+    private static BankResponse ToBank(string code) =>
+        Bank.FromCode(code) is { } bank ? new BankResponse(bank.Code, bank.Name) : new BankResponse(code, code);
 
     private static string ToContract(ConnectionStatus status) => status switch
     {
@@ -115,4 +116,5 @@ public sealed record AccountResponse(Guid Id, string? Name, string? MaskedIban, 
 
 public sealed record TransactionPageResponse(IReadOnlyList<TransactionResponse> Items, string? NextCursor);
 
-public sealed record TransactionResponse(Guid Id, DateOnly BookingDate, MoneyResponse Amount, string? Description, string? Counterparty, string Status);
+public sealed record TransactionResponse(
+    Guid Id, DateOnly BookingDate, MoneyResponse Amount, string? Description, string? Counterparty, string Status, BankResponse Bank);
