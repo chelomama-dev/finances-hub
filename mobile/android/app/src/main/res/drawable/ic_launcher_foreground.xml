@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Three growing bars inside a ring: the accounts of every bank brought together. 108dp canvas with the art inside
+     the 66dp safe zone, so launchers can mask it with any shape; also the splash screen's icon -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M54,30a24,24 0,1 1,0 48a24,24 0,1 1,0 -48z"
+        android:strokeWidth="5"
+        android:strokeColor="@color/brand_accent" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M42.5,56h4a1.5,1.5 0,0 1,1.5 1.5v8.5h-7v-8.5a1.5,1.5 0,0 1,1.5 -1.5z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M52,49h4a1.5,1.5 0,0 1,1.5 1.5v15.5h-7v-15.5a1.5,1.5 0,0 1,1.5 -1.5z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M61.5,42h4a1.5,1.5 0,0 1,1.5 1.5v22.5h-7v-22.5a1.5,1.5 0,0 1,1.5 -1.5z" />
+</vector>

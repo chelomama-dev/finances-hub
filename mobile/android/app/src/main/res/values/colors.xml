@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The theme's seed colour (lib/app/theme.dart), behind the launcher icon and the splash screen -->
+    <color name="brand">#1B5E91</color>
+    <color name="brand_accent">#8CC8F2</color>
+</resources>
