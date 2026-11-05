@@ -13,7 +13,8 @@ permissions:
 jobs:
   apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Room for a release build plus a slow NDK restore or download retry
+    timeout-minutes: 30
     # The release key lives in this environment's secrets, and only tags v* may use it
     environment: release
     permissions:
@@ -51,6 +52,10 @@ jobs:
           channel: stable
           flutter-version: 3.47.9
           cache: true
+
+      # Flutter's NDK, from the cache: Gradle's own download of it has no time limit
+      - name: Android NDK
+        uses: ./.github/actions/android-ndk
 
       - name: Install
         run: flutter pub get --enforce-lockfile
