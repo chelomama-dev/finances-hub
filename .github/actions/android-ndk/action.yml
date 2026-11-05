@@ -1,0 +1,51 @@
+name: Android NDK
+description: >-
+  Installs the NDK version Flutter's Gradle plugin asks for, from the Actions cache when it's there. The runner image
+  only has some NDK versions, and Gradle downloads a missing one on every build: that download once stalled for
+  15 minutes and timed out the release. Needs Flutter on the PATH.
+
+runs:
+  using: composite
+  steps:
+    # The version Flutter sets as `flutter.ndkVersion` (android/app/build.gradle.kts), read from the Flutter SDK so a
+    # Flutter upgrade never leaves this behind
+    - name: NDK version
+      id: ndk
+      shell: bash
+      run: |
+        flutter_root=$(dirname "$(dirname "$(readlink -f "$(command -v flutter)")")")
+        version=$(sed -n 's/.*val ndkVersion: String = "\([0-9.]*\)".*/\1/p' \
+          "$flutter_root/packages/flutter_tools/gradle/src/main/kotlin/FlutterExtension.kt")
+        [[ -n "$version" ]] || { echo "::error::Can't find Flutter's NDK version"; exit 1; }
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "path=$ANDROID_HOME/ndk/$version" >> "$GITHUB_OUTPUT"
+
+    - name: Cache NDK
+      id: cache
+      uses: actions/cache@v6
+      with:
+        path: ${{ steps.ndk.outputs.path }}
+        key: android-ndk-${{ runner.os }}-${{ steps.ndk.outputs.version }}
+
+    # Bounded tries instead of Gradle's single download with no time limit
+    - name: Install NDK
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        VERSION: ${{ steps.ndk.outputs.version }}
+        NDK_PATH: ${{ steps.ndk.outputs.path }}
+      run: |
+        if [[ -f "$NDK_PATH/source.properties" ]]; then
+          echo "NDK $VERSION is already on the runner"
+          exit 0
+        fi
+        for attempt in 1 2 3; do
+          if timeout 5m "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$VERSION" > /dev/null; then
+            echo "NDK $VERSION installed"
+            exit 0
+          fi
+          echo "::warning::NDK download attempt $attempt failed"
+          rm -rf "$NDK_PATH"
+        done
+        echo "::error::Couldn't install NDK $VERSION"
+        exit 1
