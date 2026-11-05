@@ -10,14 +10,15 @@ String timeAgo(DateTime timestamp, {DateTime? now}) {
   return days == 1 ? 'hace 1 día' : 'hace $days días';
 }
 
-/// A day header: "Hoy", "Ayer", "domingo, 1 de noviembre", with the year only if it isn't the current one.
-String dayHeader(DateTime day, {DateTime? now}) {
+/// A transaction's date in its row: "Hoy", "Ayer", "30 oct", with the year only if it isn't the current one
+/// ("30 oct 2025").
+String rowDate(DateTime day, {DateTime? now}) {
   final today = _dateOnly(now ?? DateTime.now());
   final date = _dateOnly(day);
   if (date == today) return 'Hoy';
   if (date == today.subtract(const Duration(days: 1))) return 'Ayer';
 
-  final pattern = date.year == today.year ? DateFormat.MMMMEEEEd('es_ES') : DateFormat.yMMMMEEEEd('es_ES');
+  final pattern = date.year == today.year ? DateFormat('d MMM', 'es_ES') : DateFormat('d MMM y', 'es_ES');
   return pattern.format(date);
 }
 

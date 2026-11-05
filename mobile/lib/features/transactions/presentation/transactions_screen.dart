@@ -6,12 +6,9 @@ import '../../../core/widgets/states.dart';
 import '../data/transactions.dart';
 import 'transactions_providers.dart';
 
-/// Movimientos: an account's transactions, newest first and grouped by day, with filters and infinite scroll.
+/// Movimientos: every bank's transactions together, newest first, with filters and infinite scroll.
 class TransactionsScreen extends ConsumerStatefulWidget {
-  const TransactionsScreen({super.key, required this.accountId, this.accountName});
-
-  final String accountId;
-  final String? accountName;
+  const TransactionsScreen({super.key});
 
   @override
   ConsumerState<TransactionsScreen> createState() => _TransactionsScreenState();
@@ -20,28 +17,26 @@ class TransactionsScreen extends ConsumerStatefulWidget {
 class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   TransactionFilter _filter = const TransactionFilter();
 
-  TransactionsQuery get _query => (accountId: widget.accountId, filter: _filter);
-
   @override
   Widget build(BuildContext context) {
-    final transactions = ref.watch(transactionsProvider(_query));
+    final transactions = ref.watch(transactionsProvider(_filter));
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.accountName ?? 'Movimientos')),
+      appBar: AppBar(title: const Text('Movimientos')),
       body: Column(
         children: [
           _Filters(filter: _filter, onChanged: (filter) => setState(() => _filter = filter)),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: () => ref.refresh(transactionsProvider(_query).future),
+              onRefresh: () => ref.refresh(transactionsProvider(_filter).future),
               child: AsyncBody(
                 value: transactions,
-                onRetry: () => ref.invalidate(transactionsProvider(_query)),
+                onRetry: () => ref.invalidate(transactionsProvider(_filter)),
                 data: (state) => state.items.isEmpty
                     ? const EmptyView(message: 'No hay movimientos con estos filtros.')
                     : _TransactionList(
                         state: state,
-                        onLoadMore: () => ref.read(transactionsProvider(_query).notifier).loadMore(),
+                        onLoadMore: () => ref.read(transactionsProvider(_filter).notifier).loadMore(),
                       ),
               ),
             ),
@@ -114,73 +109,122 @@ class _TransactionList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Day headers and transactions in one flat list, so the list can be built lazily
-    final rows = <Object>[];
-    DateTime? day;
-    for (final transaction in state.items) {
-      if (transaction.bookingDate != day) {
-        day = transaction.bookingDate;
-        rows.add(day);
-      }
-      rows.add(transaction);
-    }
+    final items = state.items;
 
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
         if (notification.metrics.extentAfter < 400) onLoadMore();
         return false;
       },
-      child: ListView.builder(
+      child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: rows.length + 1,
-        itemBuilder: (context, index) {
-          if (index == rows.length) return _Footer(state: state, onLoadMore: onLoadMore);
-          return switch (rows[index]) {
-            DateTime day => _DayHeader(day: day),
-            Transaction transaction => _TransactionTile(transaction: transaction),
-            _ => const SizedBox.shrink(),
-          };
-        },
+        itemCount: items.length + 1,
+        separatorBuilder: (context, index) => const Divider(height: 1, indent: 16, endIndent: 16),
+        itemBuilder: (context, index) => index == items.length
+            ? _Footer(state: state, onLoadMore: onLoadMore)
+            : TransactionRow(transaction: items[index]),
       ),
     );
   }
 }
 
-class _DayHeader extends StatelessWidget {
-  const _DayHeader({required this.day});
+/// One line per transaction: a green dot for income or a red one for an expense, the description cut with "…", the
+/// date, the amount, and the bank's badge when the row is wide enough for it.
+class TransactionRow extends StatelessWidget {
+  const TransactionRow({super.key, required this.transaction});
 
-  final DateTime day;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-    child: Text(dayHeader(day), style: Theme.of(context).textTheme.labelLarge),
-  );
-}
-
-class _TransactionTile extends StatelessWidget {
-  const _TransactionTile({required this.transaction});
+  /// Below this width the bank's badge is left out, so the description keeps room to be read.
+  static const minWidthForBank = 340.0;
 
   final Transaction transaction;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final income = theme.brightness == Brightness.dark ? Colors.green.shade300 : Colors.green.shade700;
-    final subtitle = [
-      ?transaction.counterparty,
-      if (transaction.status == TransactionStatus.pending) 'Pendiente',
-    ].join(' · ');
+    final dark = theme.brightness == Brightness.dark;
+    final dotColor = transaction.isIncome
+        ? (dark ? Colors.green.shade300 : Colors.green.shade700)
+        : (dark ? Colors.red.shade300 : Colors.red.shade700);
+    final pending = transaction.status == TransactionStatus.pending;
 
-    return ListTile(
-      title: Text(transaction.description ?? 'Sin descripción', maxLines: 2, overflow: TextOverflow.ellipsis),
-      subtitle: subtitle.isEmpty ? null : Text(subtitle),
-      trailing: Text(
-        transaction.amount.format(),
-        style: theme.textTheme.titleMedium?.copyWith(color: transaction.isIncome ? income : null),
+    return LayoutBuilder(
+      builder: (context, constraints) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Semantics(
+              label: transaction.isIncome ? 'Ingreso' : 'Gasto',
+              child: DecoratedBox(
+                decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+                child: const SizedBox.square(dimension: 10),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    transaction.description ?? 'Sin descripción',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyLarge,
+                  ),
+                  Text(
+                    [rowDate(transaction.bookingDate), if (pending) 'Pendiente'].join(' · '),
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(transaction.amount.format(), style: theme.textTheme.titleMedium),
+            if (constraints.maxWidth >= minWidthForBank) ...[
+              const SizedBox(width: 12),
+              BankBadge(bank: transaction.bank),
+            ],
+          ],
+        ),
       ),
     );
   }
+}
+
+/// A bank's "icon": its initials in a circle with a colour of its own. No logos, which are the banks' trademarks.
+class BankBadge extends StatelessWidget {
+  const BankBadge({super.key, required this.bank});
+
+  final TransactionBank bank;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final (background, foreground) = switch (bank.id) {
+      'caja-rural-navarra' => (scheme.primaryContainer, scheme.onPrimaryContainer),
+      'trade-republic' => (scheme.tertiaryContainer, scheme.onTertiaryContainer),
+      _ => (scheme.secondaryContainer, scheme.onSecondaryContainer),
+    };
+
+    return Tooltip(
+      message: bank.name,
+      child: CircleAvatar(
+        radius: 14,
+        backgroundColor: background,
+        child: Text(
+          bankInitials(bank.name),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: foreground, fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Caja Rural de Navarra" → "CR", "Trade Republic" → "TR": the first letters of the first two words that aren't
+/// short connectors like "de".
+String bankInitials(String name) {
+  final words = name.split(RegExp(r'\s+')).where((w) => w.length > 2).toList();
+  if (words.isEmpty) return name.isEmpty ? '?' : name[0].toUpperCase();
+  return words.take(2).map((w) => w[0].toUpperCase()).join();
 }
 
 class _Footer extends StatelessWidget {
@@ -203,7 +247,10 @@ class _Footer extends StatelessWidget {
       );
     }
     if (state.hasMore) {
-      return const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()));
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
     return const SizedBox(height: 32);
   }

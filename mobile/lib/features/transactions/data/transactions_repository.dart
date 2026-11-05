@@ -8,8 +8,7 @@ import '../../../core/money.dart';
 import 'transactions.dart';
 
 abstract interface class TransactionsRepository {
-  Future<TransactionPage> getTransactions(
-    String accountId, {
+  Future<TransactionPage> getTransactions({
     required TransactionFilter filter,
     String? cursor,
     int limit = TransactionsRepository.pageSize,
@@ -30,8 +29,7 @@ class ApiTransactionsRepository implements TransactionsRepository {
   final ApiClient _api;
 
   @override
-  Future<TransactionPage> getTransactions(
-    String accountId, {
+  Future<TransactionPage> getTransactions({
     required TransactionFilter filter,
     String? cursor,
     int limit = TransactionsRepository.pageSize,
@@ -39,7 +37,7 @@ class ApiTransactionsRepository implements TransactionsRepository {
     final range = filter.range;
     return TransactionPage.fromJson(
       await _api.get(
-        '/api/accounts/${Uri.encodeComponent(accountId)}/transactions',
+        '/api/transactions',
         query: {
           'limit': limit,
           if (range != null) 'from': apiDate(range.start),
@@ -52,15 +50,14 @@ class ApiTransactionsRepository implements TransactionsRepository {
   }
 }
 
-/// Made-up transactions for the last months, filtered and paged like the API does.
+/// Made-up transactions of both banks for the last months, filtered and paged like the API does.
 class DemoTransactionsRepository implements TransactionsRepository {
   DemoTransactionsRepository({DateTime? today}) : _all = _generate(today ?? DateTime.now());
 
   final List<Transaction> _all;
 
   @override
-  Future<TransactionPage> getTransactions(
-    String accountId, {
+  Future<TransactionPage> getTransactions({
     required TransactionFilter filter,
     String? cursor,
     int limit = TransactionsRepository.pageSize,
@@ -93,21 +90,34 @@ class DemoTransactionsRepository implements TransactionsRepository {
     for (var i = 0; i < 90; i++) {
       final date = day.subtract(Duration(days: i));
       if (date.day == 1) {
-        result.add(_tx('${i}n', date, '1650.00', 'NOMINA', 'Empresa Ejemplo S.A.'));
+        result.add(_tx('${i}n', date, '1650.00', 'NOMINA', 'Empresa Ejemplo S.A.', _cajaRural));
       }
       final (description, counterparty, amount) = expenses[i % expenses.length];
-      result.add(_tx('${i}e', date, amount, description, counterparty));
+      // Trade Republic sends no description, like the transactions the bank really sends
+      result.add(
+        _tx('${i}e', date, amount, description, counterparty, description == null ? _tradeRepublic : _cajaRural),
+      );
     }
     return result;
   }
 
-  static Transaction _tx(String id, DateTime date, String amount, String? description, String? counterparty) =>
-      Transaction(
-        id: 'demo-$id',
-        bookingDate: date,
-        amount: Money(Decimal.parse(amount), 'EUR'),
-        description: description,
-        counterparty: counterparty,
-        status: TransactionStatus.booked,
-      );
+  static const _cajaRural = TransactionBank(id: 'caja-rural-navarra', name: 'Caja Rural de Navarra');
+  static const _tradeRepublic = TransactionBank(id: 'trade-republic', name: 'Trade Republic');
+
+  static Transaction _tx(
+    String id,
+    DateTime date,
+    String amount,
+    String? description,
+    String? counterparty,
+    TransactionBank bank,
+  ) => Transaction(
+    id: 'demo-$id',
+    bookingDate: date,
+    amount: Money(Decimal.parse(amount), 'EUR'),
+    description: description,
+    counterparty: counterparty,
+    status: TransactionStatus.booked,
+    bank: bank,
+  );
 }

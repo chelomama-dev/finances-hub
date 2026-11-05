@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/transactions.dart';
 import '../data/transactions_repository.dart';
 
-/// Which list: an account with a filter. A new filter is a new list, read from its first page.
-typedef TransactionsQuery = ({String accountId, TransactionFilter filter});
-
 class TransactionsState {
-  const TransactionsState({required this.items, required this.nextCursor, this.loadingMore = false, this.loadMoreError});
+  const TransactionsState({
+    required this.items,
+    required this.nextCursor,
+    this.loadingMore = false,
+    this.loadMoreError,
+  });
 
   final List<Transaction> items;
   final String? nextCursor;
@@ -32,21 +34,20 @@ class TransactionsState {
 }
 
 final transactionsProvider = AsyncNotifierProvider.autoDispose
-    .family<TransactionsNotifier, TransactionsState, TransactionsQuery>(TransactionsNotifier.new);
+    .family<TransactionsNotifier, TransactionsState, TransactionFilter>(TransactionsNotifier.new);
 
-/// The first page on build, then the next ones as the list scrolls to the end.
+/// Every bank's transactions with a filter: the first page on build, then the next ones as the list scrolls to the
+/// end. A new filter is a new list, read from its first page.
 class TransactionsNotifier extends AsyncNotifier<TransactionsState> {
-  TransactionsNotifier(this.query);
+  TransactionsNotifier(this.filter);
 
-  final TransactionsQuery query;
+  final TransactionFilter filter;
 
   TransactionsRepository get _repository => ref.read(transactionsRepositoryProvider);
 
   @override
   Future<TransactionsState> build() async {
-    final page = await ref
-        .watch(transactionsRepositoryProvider)
-        .getTransactions(query.accountId, filter: query.filter);
+    final page = await ref.watch(transactionsRepositoryProvider).getTransactions(filter: filter);
     return TransactionsState(items: page.items, nextCursor: page.nextCursor);
   }
 
@@ -56,10 +57,14 @@ class TransactionsNotifier extends AsyncNotifier<TransactionsState> {
 
     state = AsyncData(current.copyWith(loadingMore: true, loadMoreError: () => null));
     try {
-      final page = await _repository.getTransactions(query.accountId, filter: query.filter, cursor: current.nextCursor);
+      final page = await _repository.getTransactions(filter: filter, cursor: current.nextCursor);
       if (!ref.mounted) return;
       state = AsyncData(
-        current.copyWith(items: [...current.items, ...page.items], nextCursor: () => page.nextCursor, loadingMore: false),
+        current.copyWith(
+          items: [...current.items, ...page.items],
+          nextCursor: () => page.nextCursor,
+          loadingMore: false,
+        ),
       );
     } catch (e) {
       if (!ref.mounted) return;

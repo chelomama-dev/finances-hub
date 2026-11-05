@@ -93,7 +93,7 @@ mobile/
         data/                  DTOs (json_serializable) and repository calling the API
         presentation/          screens, widgets and Riverpod providers
       accounts/                a bank's accounts with their balances
-      transactions/            an account's transactions, filters, infinite scroll
+      transactions/            every bank's transactions together, filters, infinite scroll
       connections/             linked banks, consent status, link and reconnect
       sign_in/                 the Microsoft sign-in screen
   test/                        mirrors lib/
@@ -105,7 +105,8 @@ repositories.
 
 ### Screens
 
-All texts in Spanish. Every screen has loading, empty and error (with "Reintentar") states, and pull to refresh.
+Inicio and Movimientos are tabs of a bottom navigation bar (`app/shell.dart`). All texts in Spanish. Every screen
+has loading, empty and error (with "Reintentar") states, and pull to refresh.
 
 0. **Iniciar sesión** (`/sign-in`): only when the build has Entra ID config. Every route goes here until the owner
    is signed in; "Cerrar sesión" is in Inicio's app bar.
@@ -115,9 +116,10 @@ All texts in Spanish. Every screen has loading, empty and error (with "Reintenta
    Conexiones.
 2. **Banco** (`/banks/:bankId`): `GET /api/banks/{bankId}/accounts`. The bank's accounts with name, masked IBAN and
    balance.
-3. **Movimientos** (`/accounts/:accountId/transactions`): `GET /api/accounts/{accountId}/transactions`. Newest
-   first, grouped by day, income in green and expenses in the normal text colour. Filters: date range and
-   Todos / Ingresos / Gastos. Loads the next page with `cursor` when scrolling to the end. A transaction with no
+3. **Movimientos** (`/transactions`): `GET /api/transactions`. Every bank's transactions together, newest first,
+   one row each: a green dot for income or a red one for an expense, the description cut with "…", the date, the
+   amount with its currency, and the bank's badge (its initials) unless the row is too narrow. Filters: date range
+   and Todos / Ingresos / Gastos. Loads the next page with `cursor` when scrolling to the end. A transaction with no
    description shows "Sin descripción" (Trade Republic sends only amount, currency and date).
 4. **Conexiones** (`/connections`): `GET /api/connections`. Each bank with its status and expiry date, a
    "Reconectar" button when `expiring` or `expired`, and "Vincular banco". The linking flow is in

@@ -5,7 +5,7 @@ import '../../../core/money.dart';
 
 part 'transactions.g.dart';
 
-/// A page of `GET /api/accounts/{accountId}/transactions` (docs/api.md → "List an account's transactions").
+/// A page of `GET /api/transactions` (docs/api.md → "List transactions"): every bank's transactions together.
 @JsonSerializable(createToJson: false)
 class TransactionPage {
   const TransactionPage({required this.items, required this.nextCursor});
@@ -29,6 +29,7 @@ class Transaction {
     required this.description,
     required this.counterparty,
     required this.status,
+    required this.bank,
   });
 
   factory Transaction.fromJson(Map<String, dynamic> json) => _$TransactionFromJson(json);
@@ -48,10 +49,24 @@ class Transaction {
   @JsonKey(unknownEnumValue: TransactionStatus.booked)
   final TransactionStatus status;
 
+  /// The bank of the transaction's account.
+  final TransactionBank bank;
+
   bool get isIncome => !amount.isNegative;
 }
 
 enum TransactionStatus { booked, pending }
+
+@JsonSerializable(createToJson: false)
+class TransactionBank {
+  const TransactionBank({required this.id, required this.name});
+
+  factory TransactionBank.fromJson(Map<String, dynamic> json) => _$TransactionBankFromJson(json);
+
+  /// The bank's code (`caja-rural-navarra`), as in the summary.
+  final String id;
+  final String name;
+}
 
 enum TransactionDirection {
   income,

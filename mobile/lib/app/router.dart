@@ -11,6 +11,7 @@ import '../features/sign_in/presentation/sign_in_screen.dart';
 import '../features/summary/presentation/summary_providers.dart';
 import '../features/summary/presentation/summary_screen.dart';
 import '../features/transactions/presentation/transactions_screen.dart';
+import 'shell.dart';
 
 const signInPath = '/sign-in';
 const connectionResultPath = '/connections/result';
@@ -39,29 +40,34 @@ final routerProvider = Provider<GoRouter>((ref) {
         : const Allow(),
     redirect: (context, state) => redirectFor(status.value, state.uri),
     routes: [
-      GoRoute(
-        path: '/',
-        builder: (context, state) => const SummaryScreen(),
-        routes: [
-          GoRoute(path: 'connections', builder: (context, state) => const ConnectionsScreen()),
-          GoRoute(
-            path: 'connections/result',
-            builder: (context, state) => const ConnectionsScreen(showLinkOutcome: true),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) => AppShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/',
+                builder: (context, state) => const SummaryScreen(),
+                routes: [
+                  GoRoute(path: 'connections', builder: (context, state) => const ConnectionsScreen()),
+                  GoRoute(
+                    path: 'connections/result',
+                    builder: (context, state) => const ConnectionsScreen(showLinkOutcome: true),
+                  ),
+                  GoRoute(
+                    path: 'banks/:bankId',
+                    builder: (context, state) => BankScreen(bankId: state.pathParameters['bankId']!),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [GoRoute(path: '/transactions', builder: (context, state) => const TransactionsScreen())],
           ),
         ],
       ),
       GoRoute(path: signInPath, builder: (context, state) => const SignInScreen()),
-      GoRoute(
-        path: '/banks/:bankId',
-        builder: (context, state) => BankScreen(bankId: state.pathParameters['bankId']!),
-      ),
-      GoRoute(
-        path: '/accounts/:accountId/transactions',
-        builder: (context, state) => TransactionsScreen(
-          accountId: state.pathParameters['accountId']!,
-          accountName: state.uri.queryParameters['name'],
-        ),
-      ),
     ],
   );
   ref.onDispose(router.dispose);

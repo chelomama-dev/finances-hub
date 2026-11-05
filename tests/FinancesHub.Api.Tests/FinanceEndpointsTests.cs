@@ -41,7 +41,8 @@ public sealed class FinanceEndpointsTests(ApiFactory factory) : IClassFixture<Ap
         db.AddRange(cr, tr, _cajaRural, tradeRepublic);
         db.Transactions.AddRange(
             Tx(2026, 11, 1, -23.40m, "SUPERMERCADO"), Tx(2026, 11, 1, -5.00m, "CAFE"), Tx(2026, 11, 1, -5.00m, "CAFE"),
-            Tx(2026, 10, 31, 1650.00m, "NOMINA"), Tx(2026, 10, 15, -60.00m, null, TransactionStatus.Pending));
+            Tx(2026, 10, 31, 1650.00m, "NOMINA"), Tx(2026, 10, 15, -60.00m, null, TransactionStatus.Pending),
+            Transaction.Create(tradeRepublic.Id, new DateOnly(2026, 10, 20), null, new Money(250.00m, "EUR"), null, null, TransactionStatus.Booked));
         await db.SaveChangesAsync(Ct);
     }
 
@@ -80,32 +81,35 @@ public sealed class FinanceEndpointsTests(ApiFactory factory) : IClassFixture<Ap
     }
 
     [Fact]
-    public async Task Pages_cover_every_transaction_once_newest_first()
+    public async Task Pages_cover_every_banks_transactions_once_newest_first()
     {
         var seen = new List<JsonElement>();
         string? cursor = null;
         do
         {
-            var url = $"/api/accounts/{_cajaRural.Id}/transactions?limit=2&to=2026-11-02" + (cursor is null ? "" : $"&cursor={cursor}");
+            var url = "/api/transactions?limit=2&to=2026-11-02" + (cursor is null ? "" : $"&cursor={cursor}");
             var page = await _client.GetFromJsonAsync<JsonElement>(url, Ct);
             seen.AddRange(page.GetProperty("items").EnumerateArray());
             cursor = page.GetProperty("nextCursor").GetString();
         } while (cursor is not null);
 
-        Assert.Equal(5, seen.Count);
-        Assert.Equal(5, seen.Select(t => t.GetProperty("id").GetString()).Distinct().Count());
+        Assert.Equal(6, seen.Count);
+        Assert.Equal(6, seen.Select(t => t.GetProperty("id").GetString()).Distinct().Count());
         var dates = seen.Select(t => t.GetProperty("bookingDate").GetString()).ToList();
         Assert.Equal(dates.OrderDescending(), dates);
         Assert.Equal("-23.40", seen.First(t => t.GetProperty("description").GetString() == "SUPERMERCADO").GetProperty("amount").GetProperty("amount").GetString());
         Assert.Contains(seen, t => t.GetProperty("status").GetString() == "pending" && t.GetProperty("description").ValueKind == JsonValueKind.Null);
+        var banks = seen.Select(t => t.GetProperty("bank")).ToList();
+        Assert.Equal(5, banks.Count(b => b.GetProperty("id").GetString() == "caja-rural-navarra"));
+        Assert.Equal("Trade Republic", Assert.Single(banks, b => b.GetProperty("id").GetString() == "trade-republic").GetProperty("name").GetString());
     }
 
     [Theory]
-    [InlineData("income", 1)]
+    [InlineData("income", 2)]
     [InlineData("expense", 4)]
     public async Task Filters_by_direction(string direction, int expected)
     {
-        var page = await _client.GetFromJsonAsync<JsonElement>($"/api/accounts/{_cajaRural.Id}/transactions?direction={direction}&to=2026-11-02", Ct);
+        var page = await _client.GetFromJsonAsync<JsonElement>($"/api/transactions?direction={direction}&to=2026-11-02", Ct);
 
         Assert.Equal(expected, page.GetProperty("items").GetArrayLength());
     }
@@ -113,7 +117,7 @@ public sealed class FinanceEndpointsTests(ApiFactory factory) : IClassFixture<Ap
     [Fact]
     public async Task Filters_by_date_range()
     {
-        var page = await _client.GetFromJsonAsync<JsonElement>($"/api/accounts/{_cajaRural.Id}/transactions?from=2026-10-31&to=2026-10-31", Ct);
+        var page = await _client.GetFromJsonAsync<JsonElement>("/api/transactions?from=2026-10-31&to=2026-10-31", Ct);
 
         Assert.Equal("NOMINA", Assert.Single(page.GetProperty("items").EnumerateArray()).GetProperty("description").GetString());
     }
@@ -126,16 +130,10 @@ public sealed class FinanceEndpointsTests(ApiFactory factory) : IClassFixture<Ap
     [InlineData("cursor=not-a-cursor", "cursor")]
     public async Task Invalid_queries_are_validation_errors(string query, string field)
     {
-        var response = await _client.GetAsync($"/api/accounts/{_cajaRural.Id}/transactions?{query}", Ct);
+        var response = await _client.GetAsync($"/api/transactions?{query}", Ct);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.True((await response.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("errors").TryGetProperty(field, out _));
-    }
-
-    [Fact]
-    public async Task An_unknown_account_is_not_found()
-    {
-        Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync($"/api/accounts/{Guid.NewGuid()}/transactions", Ct)).StatusCode);
     }
 
     [Theory]

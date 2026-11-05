@@ -11,7 +11,7 @@ The HTTP contract between the backend (`src/FinancesHub.Api`) and the Flutter ap
 |---|---|---|
 | `GET /api/summary` | Total balance and balance per bank | Yes |
 | `GET /api/banks/{bankId}/accounts` | A bank's accounts and their balances | Yes |
-| `GET /api/accounts/{accountId}/transactions` | An account's transactions, filtered and paged | Yes |
+| `GET /api/transactions` | Transactions of every account, filtered and paged | Yes |
 | `GET /api/connections` | Linked banks and consent status | Yes |
 | `POST /api/connections` | Start linking a bank | Yes |
 | `POST /api/connections/{connectionId}/renew` | Start reconnecting an expired or expiring bank | Yes |
@@ -111,12 +111,12 @@ banks.
 - `maskedIban` *nullable*: some accounts have no IBAN.
 - `404` if the bank doesn't exist. A known bank that isn't linked returns an empty `accounts` list.
 
-### List an account's transactions
+### List transactions
 
-`GET /api/accounts/{accountId}/transactions?from=2026-10-01&to=2026-11-02&direction=expense&limit=50&cursor=…`
+`GET /api/transactions?from=2026-10-01&to=2026-11-02&direction=expense&limit=50&cursor=…`
 
-Newest first by `bookingDate`; transactions of the same day come in a stable order, so paging never repeats or
-skips one.
+The transactions of every account of every bank, together. Newest first by `bookingDate`; transactions of the same
+day come in a stable order, so paging never repeats or skips one.
 
 | Query | Required | Default | Notes |
 |---|---|---|---|
@@ -135,7 +135,8 @@ skips one.
       "amount": { "amount": "-23.40", "currency": "EUR" },
       "description": "MERCADONA PAMPLONA",
       "counterparty": "Mercadona S.A.",
-      "status": "booked"
+      "status": "booked",
+      "bank": { "id": "caja-rural-navarra", "name": "Caja Rural de Navarra" }
     },
     {
       "id": "e4a7b2c9-6f1d-4a83-b5e0-3c9d8f2a1b76",
@@ -143,7 +144,8 @@ skips one.
       "amount": { "amount": "1650.00", "currency": "EUR" },
       "description": null,
       "counterparty": null,
-      "status": "booked"
+      "status": "booked",
+      "bank": { "id": "trade-republic", "name": "Trade Republic" }
     }
   ],
   "nextCursor": "eyJkIjoiMjAyNi0xMC0zMSIsImkiOjQyfQ"
@@ -153,8 +155,9 @@ skips one.
 - `description` and `counterparty` *nullable*: Trade Republic never sends them. Caja Rural always sends a
   description, and a counterparty only for transfers.
 - `status`: `booked` or `pending`. Both banks have sent only `booked` so far, but the app must handle `pending`.
+- `bank`: the bank of the transaction's account, with the same `id` and `name` as in the summary.
 - `nextCursor` *nullable*: `null` on the last page.
-- `400` if a query value is invalid (for example `from` after `to`); `404` if the account doesn't exist.
+- `400` if a query value is invalid (for example `from` after `to`).
 
 ### List connections
 
@@ -234,3 +237,5 @@ accounts in the backend's allowed list are saved, whatever the owner shares in t
 - 2026-11-02: summary, accounts and transactions implemented. Same-day transactions come in a stable order rather
   than arrival order.
 - 2026-11-02: auth in Azure: the `access_as_user` scope, and `403` for a valid token that isn't the owner's.
+- 2026-11-05: `GET /api/transactions` lists the transactions of every account together, each with its `bank`. It
+  replaces `GET /api/accounts/{accountId}/transactions`, which the app no longer uses.
