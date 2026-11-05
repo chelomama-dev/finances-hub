@@ -16,12 +16,18 @@ public interface IFinanceQueries
     /// </summary>
     Task<IReadOnlyList<TransactionView>> ListTransactionsAsync(
         TransactionFilter filter, TransactionCursor? after, int limit, CancellationToken cancellationToken);
+
+    /// <summary>Date, amount and description of every transaction in <paramref name="currency"/> between two dates, inclusive.</summary>
+    Task<IReadOnlyList<MovementView>> ListMovementsAsync(DateOnly from, DateOnly to, string currency, CancellationToken cancellationToken);
 }
 
 public sealed record AccountView(Guid Id, string BankCode, string? Name, Iban? Iban, string Currency, Money? Balance, DateTimeOffset? LastSyncedAt);
 
 public sealed record TransactionView(
     Guid Id, string BankCode, DateOnly BookingDate, Money Amount, string? Description, string? Counterparty, TransactionStatus Status);
+
+/// <param name="Amount">Signed: negative is an expense.</param>
+public sealed record MovementView(DateOnly BookingDate, decimal Amount, string? Description);
 
 /// <param name="From">Inclusive.</param>
 /// <param name="To">Inclusive.</param>

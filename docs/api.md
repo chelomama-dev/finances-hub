@@ -12,6 +12,7 @@ The HTTP contract between the backend (`src/FinancesHub.Api`) and the Flutter ap
 | `GET /api/summary` | Total balance and balance per bank | Yes |
 | `GET /api/banks/{bankId}/accounts` | A bank's accounts and their balances | Yes |
 | `GET /api/transactions` | Transactions of every account, filtered and paged | Yes |
+| `GET /api/statistics` | Income, expenses and top expenses of a date range | Yes |
 | `GET /api/connections` | Linked banks and consent status | Yes |
 | `POST /api/connections` | Start linking a bank | Yes |
 | `POST /api/connections/{connectionId}/renew` | Start reconnecting an expired or expiring bank | Yes |
@@ -159,6 +160,55 @@ day come in a stable order, so paging never repeats or skips one.
 - `nextCursor` *nullable*: `null` on the last page.
 - `400` if a query value is invalid (for example `from` after `to`).
 
+### Get statistics
+
+`GET /api/statistics?from=2026-10-07&to=2026-11-05`
+
+What came in and went out in a date range, across every account: the totals, the descriptions with the most
+expenses, and the totals of each day. Data comes from the last sync.
+
+| Query | Required | Default | Notes |
+|---|---|---|---|
+| `from` | Yes | | Date, inclusive |
+| `to` | No | today | Date, inclusive. At most 366 days after `from` |
+
+```json
+{
+  "from": "2026-10-07",
+  "to": "2026-11-05",
+  "income": { "amount": "1650.00", "currency": "EUR" },
+  "expenses": { "amount": "-812.30", "currency": "EUR" },
+  "topExpenses": [
+    { "description": "MERCADONA PAMPLONA", "amount": { "amount": "-212.75", "currency": "EUR" }, "count": 6 },
+    { "description": "RECIBO LUZ", "amount": { "amount": "-61.32", "currency": "EUR" }, "count": 1 },
+    { "description": null, "amount": { "amount": "-49.95", "currency": "EUR" }, "count": 5 }
+  ],
+  "otherExpenses": { "amount": "-488.28", "currency": "EUR" },
+  "days": [
+    {
+      "date": "2026-10-31",
+      "income": { "amount": "1650.00", "currency": "EUR" },
+      "expenses": { "amount": "0.00", "currency": "EUR" }
+    },
+    {
+      "date": "2026-11-01",
+      "income": { "amount": "0.00", "currency": "EUR" },
+      "expenses": { "amount": "-23.40", "currency": "EUR" }
+    }
+  ]
+}
+```
+
+- Expenses are negative, as in transactions; income is positive. Pending transactions count too.
+- `topExpenses`: up to 5 descriptions with the largest total expenses, largest first. Transactions are grouped by
+  their exact `description`; those without one are grouped together with `description: null`. `count` is how many
+  transactions the group has.
+- `otherExpenses`: the expenses of every other description, so `topExpenses` plus `otherExpenses` add up to
+  `expenses`. `"0.00"` when there are none.
+- `days`: only the days with transactions, oldest first.
+- Only EUR transactions count, like the summary's total.
+- `400` if `from` is missing, after `to`, or more than 366 days before it.
+
 ### List connections
 
 `GET /api/connections`
@@ -239,3 +289,5 @@ accounts in the backend's allowed list are saved, whatever the owner shares in t
 - 2026-11-02: auth in Azure: the `access_as_user` scope, and `403` for a valid token that isn't the owner's.
 - 2026-11-05: `GET /api/transactions` lists the transactions of every account together, each with its `bank`. It
   replaces `GET /api/accounts/{accountId}/transactions`, which the app no longer uses.
+- 2026-11-05: `GET /api/statistics`: income, expenses, top expenses by description and daily totals of a date
+  range.

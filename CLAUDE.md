@@ -66,7 +66,7 @@ mobile/                        Flutter app
 ### Stack
 
 - Flutter, latest stable, Android only. Package name `dev.chelomama.financeshub`, app name "Finances Hub".
-- State: **Riverpod** (`flutter_riverpod`). Navigation: **go_router**. HTTP: **dio**. JSON:
+- State: **Riverpod** (`flutter_riverpod`). Navigation: **go_router**. HTTP: **dio**. Charts: **fl_chart**. JSON:
   **json_serializable** + `build_runner`. Number and date formatting: **intl** with the `es_ES` locale.
 - Material 3, light and dark theme that follow the system.
 
@@ -94,6 +94,7 @@ mobile/
         presentation/          screens, widgets and Riverpod providers
       accounts/                a bank's accounts with their balances
       transactions/            every bank's transactions together, filters, infinite scroll
+      statistics/              top expenses donut and income vs expenses bars
       connections/             linked banks, consent status, link and reconnect
       sign_in/                 the Microsoft sign-in screen
   test/                        mirrors lib/
@@ -105,7 +106,7 @@ repositories.
 
 ### Screens
 
-Inicio and Movimientos are tabs of a bottom navigation bar (`app/shell.dart`). All texts in Spanish. Every screen
+Inicio, Movimientos and Estadísticas are tabs of a bottom navigation bar (`app/shell.dart`). All texts in Spanish. Every screen
 has loading, empty and error (with "Reintentar") states, and pull to refresh.
 
 0. **Iniciar sesión** (`/sign-in`): only when the build has Entra ID config. Every route goes here until the owner
@@ -121,7 +122,11 @@ has loading, empty and error (with "Reintentar") states, and pull to refresh.
    amount with its currency, and the bank's badge (its initials) unless the row is too narrow. Filters: date range
    and Todos / Ingresos / Gastos. Loads the next page with `cursor` when scrolling to the end. A transaction with no
    description shows "Sin descripción" (Trade Republic sends only amount, currency and date).
-4. **Conexiones** (`/connections`): `GET /api/connections`. Each bank with its status and expiry date, a
+4. **Estadísticas** (`/statistics`): `GET /api/statistics`. The last 7, 30 (default) or 90 days. A donut of the
+   descriptions with the most expenses (up to 5, then "Otros") with a legend of amounts and shares, and bars of
+   income against expenses per day (7 días), per 7 days (30 días) or per 15 days (90 días). Charts with
+   **fl_chart**; amounts are turned into `double` only to size the slices and bars.
+5. **Conexiones** (`/connections`): `GET /api/connections`. Each bank with its status and expiry date, a
    "Reconectar" button when `expiring` or `expired`, and "Vincular banco". The linking flow is in
    [docs/api.md](docs/api.md#link-a-bank).
 

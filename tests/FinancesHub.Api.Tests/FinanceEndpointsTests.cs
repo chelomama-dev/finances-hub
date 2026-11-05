@@ -136,6 +136,37 @@ public sealed class FinanceEndpointsTests(ApiFactory factory) : IClassFixture<Ap
         Assert.True((await response.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("errors").TryGetProperty(field, out _));
     }
 
+    [Fact]
+    public async Task Statistics_add_up_every_banks_transactions_in_the_range()
+    {
+        var statistics = await _client.GetFromJsonAsync<JsonElement>("/api/statistics?from=2026-10-01&to=2026-11-02", Ct);
+
+        Assert.Equal("2026-10-01", statistics.GetProperty("from").GetString());
+        Assert.Equal("1900.00", Amount(statistics.GetProperty("income")));
+        Assert.Equal("-93.40", Amount(statistics.GetProperty("expenses")));
+        var top = statistics.GetProperty("topExpenses").EnumerateArray().ToList();
+        Assert.Equal([null, "SUPERMERCADO", "CAFE"], top.Select(g => g.GetProperty("description").GetString()));
+        Assert.Equal("-10.00", Amount(top[2].GetProperty("amount")));
+        Assert.Equal(2, top[2].GetProperty("count").GetInt32());
+        Assert.Equal("0.00", Amount(statistics.GetProperty("otherExpenses")));
+        Assert.Equal(["2026-10-15", "2026-10-20", "2026-10-31", "2026-11-01"],
+            statistics.GetProperty("days").EnumerateArray().Select(d => d.GetProperty("date").GetString()));
+    }
+
+    [Theory]
+    [InlineData("to=2026-11-02")]
+    [InlineData("from=2026-11-03&to=2026-11-02")]
+    [InlineData("from=2025-11-01&to=2026-11-02")]
+    public async Task Invalid_statistics_ranges_are_validation_errors(string query)
+    {
+        var response = await _client.GetAsync($"/api/statistics?{query}", Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.True((await response.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("errors").TryGetProperty("from", out _));
+    }
+
+    private static string? Amount(JsonElement money) => money.GetProperty("amount").GetString();
+
     [Theory]
     [InlineData("987.76", "987.76")]
     [InlineData("1650", "1650.00")]
