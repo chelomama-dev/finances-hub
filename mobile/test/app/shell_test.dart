@@ -16,6 +16,9 @@ void main() {
             StatefulShellBranch(
               routes: [GoRoute(path: '/transactions', builder: (_, _) => const Text('transactions'))],
             ),
+            StatefulShellBranch(
+              routes: [GoRoute(path: '/statistics', builder: (_, _) => const Text('statistics'))],
+            ),
           ],
         ),
       ],
@@ -29,5 +32,10 @@ void main() {
 
     expect(find.text('transactions'), findsOneWidget);
     expect(router.routeInformationProvider.value.uri.path, '/transactions');
+
+    await tester.tap(find.text('Estadísticas'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('statistics'), findsOneWidget);
   });
 }

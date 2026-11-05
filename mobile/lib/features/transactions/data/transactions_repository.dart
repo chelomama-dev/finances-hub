@@ -88,7 +88,8 @@ class DemoTransactionsRepository implements TransactionsRepository {
     final day = DateTime(today.year, today.month, today.day);
     final result = <Transaction>[];
     for (var i = 0; i < 90; i++) {
-      final date = day.subtract(Duration(days: i));
+      // By calendar day, not by 24 hours, which would land at 01:00 or 23:00 across a daylight saving change
+      final date = DateTime(day.year, day.month, day.day - i);
       if (date.day == 1) {
         result.add(_tx('${i}n', date, '1650.00', 'NOMINA', 'Empresa Ejemplo S.A.', _cajaRural));
       }

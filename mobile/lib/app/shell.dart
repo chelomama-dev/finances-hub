@@ -22,6 +22,11 @@ class AppShell extends StatelessWidget {
           selectedIcon: Icon(Icons.receipt_long),
           label: 'Movimientos',
         ),
+        NavigationDestination(
+          icon: Icon(Icons.pie_chart_outline),
+          selectedIcon: Icon(Icons.pie_chart),
+          label: 'Estadísticas',
+        ),
       ],
     ),
   );

@@ -49,4 +49,11 @@ internal sealed class FinanceQueries(FinancesDbContext db) : IFinanceQueries
 
         return await page.Take(limit + 1).ToListAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<MovementView>> ListMovementsAsync(
+        DateOnly from, DateOnly to, string currency, CancellationToken cancellationToken) =>
+        await db.Transactions.AsNoTracking()
+            .Where(t => t.BookingDate >= from && t.BookingDate <= to && t.Amount.Currency == currency)
+            .Select(t => new MovementView(t.BookingDate, t.Amount.Amount, t.Description))
+            .ToListAsync(cancellationToken);
 }

@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace FinancesHub.Api.Finances;
 
-// See docs/api.md → "Get the summary", "List a bank's accounts" and "List transactions"
+// See docs/api.md → "Get the summary", "List a bank's accounts", "List transactions" and "Get statistics"
 public static class FinanceEndpoints
 {
     public const int DefaultLimit = 50;
@@ -21,6 +21,7 @@ public static class FinanceEndpoints
         group.MapGet("/summary", GetSummaryAsync);
         group.MapGet("/banks/{bankId}/accounts", ListAccountsAsync);
         group.MapGet("/transactions", ListTransactionsAsync);
+        group.MapGet("/statistics", GetStatisticsAsync);
 
         return app;
     }
@@ -92,6 +93,32 @@ public static class FinanceEndpoints
             nextCursor));
     }
 
+    private static async Task<Results<Ok<StatisticsResponse>, ValidationProblem>> GetStatisticsAsync(
+        DateOnly? from, DateOnly? to, GetStatistics getStatistics, TimeProvider timeProvider, CancellationToken cancellationToken)
+    {
+        to ??= DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
+        var error = from switch
+        {
+            null => "Required.",
+            _ when from > to => "Must not be after 'to'.",
+            _ when to.Value.DayNumber - from.Value.DayNumber >= GetStatistics.MaxDays => $"Must be at most {GetStatistics.MaxDays} days before 'to'.",
+            _ => null
+        };
+        if (error is not null)
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["from"] = [error] });
+
+        var statistics = await getStatistics.RunAsync(from!.Value, to.Value, cancellationToken);
+
+        return TypedResults.Ok(new StatisticsResponse(
+            statistics.From,
+            statistics.To,
+            MoneyResponse.From(statistics.Income),
+            MoneyResponse.From(statistics.Expenses),
+            statistics.TopExpenses.Select(g => new ExpenseGroupResponse(g.Description, MoneyResponse.From(g.Total), g.Count)).ToList(),
+            MoneyResponse.From(statistics.OtherExpenses),
+            statistics.Days.Select(d => new DayTotalsResponse(d.Date, MoneyResponse.From(d.Income), MoneyResponse.From(d.Expenses))).ToList()));
+    }
+
     // Every stored account belongs to a known bank; the code alone is the fallback name if one is ever dropped
     private static BankResponse ToBank(string code) =>
         Bank.FromCode(code) is { } bank ? new BankResponse(bank.Code, bank.Name) : new BankResponse(code, code);
@@ -118,3 +145,11 @@ public sealed record TransactionPageResponse(IReadOnlyList<TransactionResponse> 
 
 public sealed record TransactionResponse(
     Guid Id, DateOnly BookingDate, MoneyResponse Amount, string? Description, string? Counterparty, string Status, BankResponse Bank);
+
+public sealed record StatisticsResponse(
+    DateOnly From, DateOnly To, MoneyResponse Income, MoneyResponse Expenses, IReadOnlyList<ExpenseGroupResponse> TopExpenses,
+    MoneyResponse OtherExpenses, IReadOnlyList<DayTotalsResponse> Days);
+
+public sealed record ExpenseGroupResponse(string? Description, MoneyResponse Amount, int Count);
+
+public sealed record DayTotalsResponse(DateOnly Date, MoneyResponse Income, MoneyResponse Expenses);

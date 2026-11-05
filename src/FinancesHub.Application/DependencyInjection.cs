@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddScoped<SyncBanks>();
         services.AddScoped<LinkBank>();
         services.AddScoped<GetSummary>();
+        services.AddScoped<GetStatistics>();
         return services;
     }
 }

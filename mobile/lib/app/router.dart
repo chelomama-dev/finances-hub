@@ -8,6 +8,7 @@ import '../features/connections/data/connections.dart';
 import '../features/connections/presentation/connections_providers.dart';
 import '../features/connections/presentation/connections_screen.dart';
 import '../features/sign_in/presentation/sign_in_screen.dart';
+import '../features/statistics/presentation/statistics_screen.dart';
 import '../features/summary/presentation/summary_providers.dart';
 import '../features/summary/presentation/summary_screen.dart';
 import '../features/transactions/presentation/transactions_screen.dart';
@@ -64,6 +65,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(
             routes: [GoRoute(path: '/transactions', builder: (context, state) => const TransactionsScreen())],
+          ),
+          StatefulShellBranch(
+            routes: [GoRoute(path: '/statistics', builder: (context, state) => const StatisticsScreen())],
           ),
         ],
       ),
