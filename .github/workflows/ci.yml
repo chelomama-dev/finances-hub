@@ -179,7 +179,8 @@ jobs:
           "-p:ContainerImageTags=\"sha-${GITHUB_SHA::7};latest\""
 
   deploy:
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    # Off while there is no Azure environment: set the repository variable DEPLOY_ENABLED=true to deploy again
+    if: vars.DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     needs: [publish]
     runs-on: ubuntu-latest
     timeout-minutes: 30
